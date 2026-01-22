@@ -143,6 +143,14 @@ const init3D = () => {
   materials.leaves = new THREE.MeshLambertMaterial({ color: palette.leaves, ...matConfig })
   materials.trunk = new THREE.MeshLambertMaterial({ color: palette.wood, ...matConfig })
   materials.stone = new THREE.MeshLambertMaterial({ color: palette.stone, ...matConfig })
+  // NEW: Shiny Black Eye Material
+  materials.eyes = new THREE.MeshStandardMaterial({ 
+    color: 0x111111, // Almost black
+    roughness: 0.1,  // Very smooth (shiny)
+    metalness: 0.5,  // Slightly metallic (reflective)
+    flatShading: true
+  })
+
 
   // Create Scene (The world container)
   scene = new THREE.Scene()
@@ -372,25 +380,35 @@ const deleteAlpaca = () => {
 const spawnAlpacaMesh = (data) => {
   const group = new THREE.Group()
   group.position.set(data.x, 0, data.z); group.rotation.y = data.yRot
-  group.userData = { isAlpaca: true, id: data.id } // Tag for raycasting
+  group.userData = { isAlpaca: true, id: data.id }
 
   const bodyGroup = new THREE.Group()
   group.add(bodyGroup)
 
-  // Unique material for this alpaca's color
   const woolMat = new THREE.MeshLambertMaterial({ color: data.color, flatShading: true })
 
   const hipHeight = 0.9 
-  // Add body parts (Blocks)
-  bodyGroup.add(createBlock(1.2, 1.0, 1.8, woolMat, 0, hipHeight + 0.5, 0)) 
-  bodyGroup.add(createBlock(0.6, 0.6, 0.6, woolMat, 0, hipHeight + 1.3, 0.6)) 
-  bodyGroup.add(createBlock(0.6, 0.6, 0.6, woolMat, 0, hipHeight + 1.9, 0.6)) 
+  
+  // Body Parts
+  bodyGroup.add(createBlock(1.2, 1.0, 1.8, woolMat, 0, hipHeight + 0.5, 0)) // Torso
+  bodyGroup.add(createBlock(0.6, 0.6, 0.6, woolMat, 0, hipHeight + 1.3, 0.6)) // Neck Low
+  bodyGroup.add(createBlock(0.6, 0.6, 0.6, woolMat, 0, hipHeight + 1.9, 0.6)) // Neck High
+  
+  // HEAD
   bodyGroup.add(createBlock(0.8, 0.8, 0.8, woolMat, 0, hipHeight + 2.6, 0.7)) 
-  bodyGroup.add(createBlock(0.6, 0.4, 0.2, materials.skin, 0, hipHeight + 2.4, 1.2)) 
-  bodyGroup.add(createBlock(0.2, 0.3, 0.2, woolMat, 0.25, hipHeight + 3.15, 0.5)) 
-  bodyGroup.add(createBlock(0.2, 0.3, 0.2, woolMat, -0.25, hipHeight + 3.15, 0.5)) 
 
-  // Add Legs (Saved in array for animation)
+  // FACE
+  bodyGroup.add(createBlock(0.6, 0.4, 0.2, materials.skin, 0, hipHeight + 2.4, 1.2)) // Snout
+  bodyGroup.add(createBlock(0.2, 0.3, 0.2, woolMat, 0.25, hipHeight + 3.15, 0.5)) // Ear L
+  bodyGroup.add(createBlock(0.2, 0.3, 0.2, woolMat, -0.25, hipHeight + 3.15, 0.5)) // Ear R
+
+  // --- NEW: EYES ---
+  // Position: On the front face of the head (z=1.1), spaced apart (x=0.25), slightly up (y=2.7)
+  const eyeSize = 0.12
+  bodyGroup.add(createBlock(eyeSize, eyeSize, 0.05, materials.eyes, 0.25, hipHeight + 2.7, 1.11)) // Left Eye
+  bodyGroup.add(createBlock(eyeSize, eyeSize, 0.05, materials.eyes, -0.25, hipHeight + 2.7, 1.11)) // Right Eye
+
+  // Legs
   const legs = []; const createLeg = (x, z) => {
     const g = new THREE.Group()
     g.add(createBlock(0.35, 0.7, 0.35, woolMat, 0, -0.35, 0))
@@ -402,7 +420,6 @@ const spawnAlpacaMesh = (data) => {
   group.add(FL, FR, BL, BR); legs.push(FL, FR, BL, BR)
 
   scene.add(group)
-  // Save reference to Map
   alpacaMeshes.set(data.id, { group, bodyGroup, legs, woolMat, walkTime: Math.random() * 10 })
 }
 
@@ -812,6 +829,7 @@ onUnmounted(() => { if(gui) gui.destroy(); cancelAnimationFrame(animationId); if
         <label>Name</label><input v-model="selectedAlpacaProfile.name" type="text" />
         <label>Color</label><input v-model="selectedAlpacaProfile.color" type="color" @input="alpacaMeshes.get(selectedAlpacaProfile.id).woolMat.color.set(selectedAlpacaProfile.color)" />
         <label>Speed</label><input v-model.number="selectedAlpacaProfile.speed" type="range" min="0.05" max="0.3" step="0.01" />
+        <label>Eyes</label><input v-model.number="selectedAlpacaProfile.eyeSize" type="range" min="0.05" max="0.3" step="0.01" />
         <hr/>
         
         <button class="btn primary full" v-if="selectedAlpacaProfile.id !== activeAlpacaId" @click="switchControl(selectedAlpacaProfile.id)">🎮 Possess</button>
