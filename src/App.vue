@@ -225,7 +225,12 @@ const init3D = () => {
 // ==============================
 
 // Helper to trigger the hidden file input click
-const triggerVisit = () => visitInput.value.click()
+const triggerVisit = () => {
+  if (visitInput.value) {
+    visitInput.value.value = null; // 👈 reset file input
+    visitInput.value.click();
+  }
+}
 
 // Logic for loading a visiting file
 const loadVisitFile = (event) => {
@@ -736,6 +741,7 @@ const loadGame = (event) => {
       data.alpacas.forEach(a => { a.aiTimer = 0; alpacaList.push(a); spawnAlpacaMesh(a) })
       buildFarm(worldParams.mapSize)
       isPlaying.value = true
+      respawnCoins()
     } catch (err) { alert("Invalid Save File!") }
   }
   reader.readAsText(file)
