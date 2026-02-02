@@ -157,9 +157,21 @@ const initDatabase = () => {
       highest_score INTEGER DEFAULT 0,
       win_streak INTEGER DEFAULT 0,
       current_streak INTEGER DEFAULT 0,
+      farm_coins INTEGER DEFAULT 0,
+      farm_alpacas INTEGER DEFAULT 1,
+      farm_visits INTEGER DEFAULT 0,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+
+  // Add farm columns to existing user_stats tables (migration)
+  try {
+    db.exec(`ALTER TABLE user_stats ADD COLUMN farm_coins INTEGER DEFAULT 0`);
+    db.exec(`ALTER TABLE user_stats ADD COLUMN farm_alpacas INTEGER DEFAULT 1`);
+    db.exec(`ALTER TABLE user_stats ADD COLUMN farm_visits INTEGER DEFAULT 0`);
+  } catch (e) {
+    // Columns already exist, ignore
+  }
 
   // Notifications table
   db.exec(`

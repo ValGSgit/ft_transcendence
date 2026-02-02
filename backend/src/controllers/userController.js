@@ -162,6 +162,32 @@ export const getCurrentUser = async (req, res) => {
   }
 };
 
+export const updateFarmStats = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { coins, alpacas } = req.body;
+
+    // Validate input
+    if (coins !== undefined && (typeof coins !== 'number' || coins < 0)) {
+      return errorResponse(res, 'Invalid coins value', 400);
+    }
+    if (alpacas !== undefined && (typeof alpacas !== 'number' || alpacas < 1)) {
+      return errorResponse(res, 'Invalid alpacas value', 400);
+    }
+
+    const stats = User.updateFarmStats(userId, { coins, alpacas });
+
+    if (!stats) {
+      return errorResponse(res, 'Stats not found', 404);
+    }
+
+    return successResponse(res, { stats }, 'Farm stats updated successfully');
+  } catch (error) {
+    console.error('Update farm stats error:', error);
+    return errorResponse(res, 'Failed to update farm stats', 500);
+  }
+};
+
 export default {
   getAllUsers,
   getUserById,
@@ -170,4 +196,5 @@ export default {
   searchUsers,
   getUserStats,
   getCurrentUser,
+  updateFarmStats,
 };

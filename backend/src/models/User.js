@@ -169,6 +169,31 @@ export class User {
     return stmt.get(userId);
   }
 
+  static updateFarmStats(userId, { coins, alpacas }) {
+    const stats = this.getStats(userId);
+    if (!stats) return null;
+
+    const newCoins = coins !== undefined ? coins : stats.farm_coins;
+    const newAlpacas = alpacas !== undefined ? alpacas : stats.farm_alpacas;
+
+    const stmt = db.prepare(`
+      UPDATE user_stats
+      SET farm_coins = ?, farm_alpacas = ?
+      WHERE user_id = ?
+    `);
+    stmt.run(newCoins, newAlpacas, userId);
+    return this.getStats(userId);
+  }
+
+  static incrementFarmVisits(userId) {
+    const stmt = db.prepare(`
+      UPDATE user_stats
+      SET farm_visits = farm_visits + 1
+      WHERE user_id = ?
+    `);
+    stmt.run(userId);
+  }
+
   static search(query, limit = 20) {
     const stmt = db.prepare(`
       SELECT id, username, email, avatar, bio, status, online, last_seen

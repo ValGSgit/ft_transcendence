@@ -58,6 +58,9 @@
         <button v-if="isVisiting" class="hud-btn return-btn" @click="returnHome" title="Return Home">
           🏠
         </button>
+        <button class="hud-btn menu-btn" @click="returnToMenu" title="Return to Menu">
+          ⏹️
+        </button>
       </div>
 
       <!-- Alpaca List -->
@@ -271,6 +274,7 @@ import { onMounted, onUnmounted, ref, reactive, nextTick, computed, watch } from
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useSocialStore } from '../stores/social'
+import api from '../services/api'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import GUI from 'lil-gui'
@@ -561,6 +565,22 @@ const updateAlpacas = (delta) => {
         const magnitude = Math.sqrt(inputX * inputX + inputZ * inputZ)
         inputX /= magnitude
         inputZ /= magnitude
+      }
+      
+      // *** CAMERA-RELATIVE MOVEMENT ***
+      // Transform input direction based on camera's horizontal rotation
+      // This makes WASD/arrows always move relative to where the camera is facing
+      if (inputX !== 0 || inputZ !== 0) {
+        const cameraAngle = controls.getAzimuthalAngle()
+        const cos = Math.cos(cameraAngle)
+        const sin = Math.sin(cameraAngle)
+        
+        // Rotate input vector by camera angle
+        const worldX = inputX * cos - inputZ * sin
+        const worldZ = inputX * sin + inputZ * cos
+        
+        inputX = worldX
+        inputZ = worldZ
       }
       
       // Apply acceleration/deceleration for smooth movement
@@ -939,7 +959,7 @@ const closeProfile = () => {
 // ==============================
 // 7. SAVE/LOAD SYSTEM
 // ==============================
-const saveGame = () => {
+const saveGame = async () => {
   const saveData = {
     farmName: farmName.value,
     score: score.value,
@@ -948,6 +968,18 @@ const saveGame = () => {
     alpacas: alpacaList.map(a => ({ ...a }))
   }
 
+  // Sync farm stats to backend
+  try {
+    await api.put('/users/me/farm-stats', {
+      coins: score.value,
+      alpacas: alpacaList.length
+    })
+    console.log('✅ Farm stats synced to server')
+  } catch (error) {
+    console.error('Failed to sync farm stats:', error)
+  }
+
+  // Local save to file
   const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -1095,6 +1127,29 @@ const returnHome = () => {
   buildFarm(worldParams.mapSize)
   isVisiting.value = false
   homeBackup = null
+}
+
+const returnToMenu = () => {
+  // Save current progress before returning to menu
+  saveGame()
+  
+  // Reset game state
+  isPlaying.value = false
+  
+  // Reset player velocity
+  playerVelocity.x = 0
+  playerVelocity.z = 0
+  
+  // Clear target position
+  targetPosition.value = null
+  if (targetMarker) targetMarker.visible = false
+  
+  // Reset camera position for menu view
+  if (camera && controls) {
+    camera.position.set(0, 18, 24)
+    controls.target.set(0, 2, 0)
+    controls.update()
+  }
 }
 
 const updateColors = () => {
@@ -1443,23 +1498,28 @@ kbd {
 }
 
 .farm-info {
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
   padding: 0.75rem 1.25rem;
   border-radius: 12px;
   color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .farm-name {
   font-weight: bold;
   font-size: 1.1rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .visiting-badge {
-  background: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   margin-left: 0.5rem;
   font-size: 0.8rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .hud-stats {
@@ -1471,19 +1531,30 @@ kbd {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
   padding: 0.75rem 1rem;
   border-radius: 12px;
   color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s;
+}
+
+.stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
 }
 
 .stat-icon {
   font-size: 1.25rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .stat-value {
   font-weight: bold;
   font-size: 1.1rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .hud-side {
@@ -1501,20 +1572,42 @@ kbd {
   height: 50px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.6);
-  border: none;
+  border: 2px solid rgba(255, 255, 255, 0.1);
   color: white;
   font-size: 1.5rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .hud-btn:hover {
   background: rgba(0, 0, 0, 0.8);
   transform: scale(1.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.hud-btn:active {
+  transform: scale(0.95);
 }
 
 .return-btn {
-  background: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.return-btn:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.menu-btn {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.menu-btn:hover {
+  background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
 }
 
 /* Alpaca Sidebar */
@@ -1523,17 +1616,22 @@ kbd {
   left: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
   padding: 1rem;
   border-radius: 12px;
   color: white;
-  min-width: 180px;
+  min-width: 200px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .alpaca-sidebar h4 {
   margin: 0 0 0.75rem;
   font-size: 0.9rem;
   opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .alpaca-list {
@@ -1544,6 +1642,25 @@ kbd {
   overflow-y: auto;
 }
 
+/* Custom scrollbar for alpaca list */
+.alpaca-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.alpaca-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.alpaca-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.alpaca-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
 .alpaca-item {
   display: flex;
   align-items: center;
@@ -1551,15 +1668,19 @@ kbd {
   padding: 0.5rem;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  border: 1px solid transparent;
 }
 
 .alpaca-item:hover {
   background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .alpaca-item.active {
-  background: rgba(102, 126, 234, 0.5);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.6) 0%, rgba(118, 75, 162, 0.6) 100%);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
 }
 
 .alpaca-color {
@@ -1567,15 +1688,18 @@ kbd {
   height: 24px;
   border-radius: 50%;
   border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .alpaca-name {
   flex: 1;
   font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .control-badge {
   font-size: 0.8rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 /* Settings Panel */

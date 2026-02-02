@@ -432,26 +432,33 @@ function formatTime(dateString) {
 }
 
 .tab {
-  padding: 0.75rem 1.25rem;
-  background: #f0f2f5;
-  border: none;
-  border-radius: 20px;
+  padding: 0.875rem 1.5rem;
+  background: white;
+  border: 2px solid transparent;
+  border-radius: 24px;
   cursor: pointer;
   font-weight: 600;
   color: #65676b;
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .tab:hover {
-  background: #e4e6e9;
+  background: #f8f9fa;
+  border-color: rgba(102, 126, 234, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
 }
 
 .tab.active {
-  background: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  transform: translateY(-2px);
 }
 
 .badge {
@@ -484,9 +491,16 @@ function formatTime(dateString) {
   display: flex;
   align-items: center;
   background: white;
-  border-radius: 20px;
-  padding: 0.5rem 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: 24px;
+  padding: 0.75rem 1.25rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+  border: 2px solid transparent;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.search-input-wrapper:focus-within {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
 }
 
 .search-icon {

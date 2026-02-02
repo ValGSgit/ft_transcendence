@@ -453,23 +453,42 @@ function shouldShowDate(current, previous) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-  border-bottom: 1px solid #e4e6e9;
+  padding: 1.25rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 242, 245, 0.8) 100%);
+  backdrop-filter: blur(10px);
 }
 
 .sidebar-header h2 {
   margin: 0;
   font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .new-message-btn {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  background: #f0f2f5;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 1.1rem;
+  color: white;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.new-message-btn:hover {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+}
+
+.new-message-btn:active {
+  transform: scale(0.95);
 }
 
 .search-wrapper {
@@ -504,17 +523,38 @@ function shouldShowDate(current, previous) {
 .conversation-item {
   display: flex;
   align-items: center;
-  padding: 0.75rem 1rem;
+  padding: 0.875rem 1rem;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 12px;
+  margin: 0 0.5rem;
+  position: relative;
+}
+
+.conversation-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.conversation-item.active::before {
+  opacity: 1;
 }
 
 .conversation-item:hover {
   background: #f0f2f5;
+  transform: translateX(2px);
 }
 
 .conversation-item.active {
-  background: #e4e6e9;
+  background: linear-gradient(90deg, rgba(102, 126, 234, 0.1) 0%, rgba(240, 242, 245, 0.5) 100%);
 }
 
 .avatar-wrapper {
