@@ -2,15 +2,15 @@
   <article class="post-card card">
     <!-- Post Header -->
     <header class="post-header">
-      <router-link :to="`/profile/${post.author.username}`" class="author-link">
-        <img :src="post.author.avatar || defaultAvatar" :alt="post.author.username" class="avatar" />
+      <router-link :to="`/profile/${postAuthor.username}`" class="author-link">
+        <img :src="postAuthor.avatar || defaultAvatar" :alt="postAuthor.username" class="avatar" />
       </router-link>
       <div class="post-meta">
-        <router-link :to="`/profile/${post.author.username}`" class="author-name">
-          {{ post.author.username }}
+        <router-link :to="`/profile/${postAuthor.username}`" class="author-name">
+          {{ postAuthor.username }}
         </router-link>
         <div class="post-info">
-          <span class="post-time">{{ formatTime(post.createdAt) }}</span>
+          <span class="post-time">{{ formatTime(post.createdAt || post.created_at) }}</span>
           <span v-if="post.visibility" class="visibility-icon">
             {{ visibilityIcon }}
           </span>
@@ -35,22 +35,22 @@
       </p>
 
       <!-- Farm Data Card -->
-      <div v-if="post.farmData" class="farm-card">
+      <div v-if="farmData" class="farm-card">
         <div class="farm-header">
           <span class="farm-icon">🦙</span>
-          <span class="farm-title">{{ post.author.username }}'s Farm</span>
+          <span class="farm-title">{{ postAuthor.username }}'s Farm</span>
         </div>
         <div class="farm-stats">
           <div class="farm-stat">
-            <span class="stat-value">{{ post.farmData.alpacas?.length || 0 }}</span>
+            <span class="stat-value">{{ farmData.alpacas?.length || farmData.alpacas || 0 }}</span>
             <span class="stat-label">Alpacas</span>
           </div>
           <div class="farm-stat">
-            <span class="stat-value">{{ post.farmData.score || 0 }}</span>
+            <span class="stat-value">{{ farmData.score || farmData.coins || 0 }}</span>
             <span class="stat-label">Coins</span>
           </div>
           <div class="farm-stat">
-            <span class="stat-value">{{ post.farmData.decorations?.length || 0 }}</span>
+            <span class="stat-value">{{ farmData.decorations?.length || farmData.decorations || 0 }}</span>
             <span class="stat-label">Decorations</span>
           </div>
         </div>
@@ -67,12 +67,12 @@
 
     <!-- Engagement Stats -->
     <div v-if="hasEngagement" class="engagement-stats">
-      <div class="likes-count" v-if="post.likes?.length">
+      <div class="likes-count" v-if="likesCount > 0">
         <span class="reaction-icons">❤️</span>
-        <span>{{ post.likes.length }}</span>
+        <span>{{ likesCount }}</span>
       </div>
-      <div class="comments-count" v-if="post.comments?.length" @click="showComments = true">
-        {{ post.comments.length }} comments
+      <div class="comments-count" v-if="commentsCount > 0" @click="showComments = true">
+        {{ commentsCount }} comments
       </div>
     </div>
 
@@ -118,16 +118,16 @@
       <!-- Comments List -->
       <div class="comments-list">
         <div v-for="comment in displayedComments" :key="comment.id" class="comment">
-          <router-link :to="`/profile/${comment.author.username}`">
-            <img :src="comment.author.avatar || defaultAvatar" class="avatar-small" />
+          <router-link :to="`/profile/${normalizeCommentAuthor(comment).username}`">
+            <img :src="normalizeCommentAuthor(comment).avatar || defaultAvatar" class="avatar-small" />
           </router-link>
           <div class="comment-bubble">
-            <router-link :to="`/profile/${comment.author.username}`" class="comment-author">
-              {{ comment.author.username }}
+            <router-link :to="`/profile/${normalizeCommentAuthor(comment).username}`" class="comment-author">
+              {{ normalizeCommentAuthor(comment).username }}
             </router-link>
             <p class="comment-text">{{ comment.content }}</p>
             <div class="comment-meta">
-              <span class="comment-time">{{ formatTime(comment.createdAt) }}</span>
+              <span class="comment-time">{{ formatTime(comment.createdAt || comment.created_at) }}</span>
               <button class="comment-action">Like</button>
               <button class="comment-action">Reply</button>
             </div>
@@ -135,11 +135,11 @@
         </div>
         
         <button 
-          v-if="post.comments?.length > 3 && !showAllComments" 
+          v-if="commentsCount > 3 && !showAllComments" 
           class="view-more-comments"
           @click="showAllComments = true"
         >
-          View {{ post.comments.length - 3 }} more comments
+          View {{ commentsCount - 3 }} more comments
         </button>
       </div>
     </div>
@@ -172,16 +172,47 @@ const showImageModal = ref(false)
 const isExpanded = ref(false)
 const newComment = ref('')
 
+// Normalize author data - supports both {author: {username, avatar}} and {username, avatar} formats
+const postAuthor = computed(() => {
+  const p = props.post
+  if (p.author) {
+    return p.author
+  }
+  return {
+    id: p.user_id,
+    username: p.username,
+    avatar: p.avatar
+  }
+})
+
 const isAuthor = computed(() => 
-  currentUser.value?.id === props.post.author.id
+  currentUser.value?.id === postAuthor.value.id || currentUser.value?.id === props.post.user_id
 )
 
-const isLiked = computed(() => 
-  props.post.likes?.includes(currentUser.value?.id)
-)
+const isLiked = computed(() => {
+  const p = props.post
+  // Check various ways the like status might be indicated
+  if (p.user_liked !== undefined) return !!p.user_liked
+  if (p.likes && Array.isArray(p.likes)) return p.likes.includes(currentUser.value?.id)
+  return false
+})
+
+const likesCount = computed(() => {
+  const p = props.post
+  if (p.likes_count !== undefined) return p.likes_count
+  if (p.likes && Array.isArray(p.likes)) return p.likes.length
+  return 0
+})
+
+const commentsCount = computed(() => {
+  const p = props.post
+  if (p.comments_count !== undefined) return p.comments_count
+  if (p.comments && Array.isArray(p.comments)) return p.comments.length
+  return 0
+})
 
 const hasEngagement = computed(() => 
-  props.post.likes?.length > 0 || props.post.comments?.length > 0
+  likesCount.value > 0 || commentsCount.value > 0
 )
 
 const isLongContent = computed(() => 
@@ -202,6 +233,16 @@ const displayedComments = computed(() => {
   return props.post.comments.slice(-3)
 })
 
+// Normalize comment author data
+const normalizeCommentAuthor = (comment) => {
+  if (comment.author) return comment.author
+  return {
+    id: comment.user_id,
+    username: comment.username,
+    avatar: comment.avatar
+  }
+}
+
 const visibilityIcon = computed(() => {
   const icons = {
     public: '🌍',
@@ -209,6 +250,14 @@ const visibilityIcon = computed(() => {
     private: '🔒'
   }
   return icons[props.post.visibility] || '🌍'
+})
+
+// Farm data - normalize between different field names
+const farmData = computed(() => {
+  const p = props.post
+  if (p.farmData) return p.farmData
+  if (p.farm_data) return typeof p.farm_data === 'string' ? JSON.parse(p.farm_data) : p.farm_data
+  return null
 })
 
 function formatTime(dateString) {
@@ -242,7 +291,7 @@ function editPost() {
 }
 
 function visitFarm() {
-  socketService.visitFarm(props.post.author.id)
+  socketService.visitFarm(postAuthor.value.id)
 }
 </script>
 

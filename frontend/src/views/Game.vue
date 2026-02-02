@@ -58,6 +58,9 @@
         <button v-if="isVisiting" class="hud-btn return-btn" @click="returnHome" title="Return Home">
           🏠
         </button>
+        <button class="hud-btn menu-btn" @click="returnToMenu" title="Return to Menu">
+          ⏹️
+        </button>
       </div>
 
       <!-- Alpaca List -->
@@ -104,6 +107,26 @@
             <li><kbd>Mouse Drag</kbd> - Rotate camera</li>
             <li><kbd>Scroll</kbd> - Zoom in/out</li>
           </ul>
+          <p class="mobile-note">📱 Touch: Use on-screen joystick to move</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Touch Controls -->
+    <div v-if="isEngineReady && isPlaying && isTouchDevice" class="mobile-controls">
+      <div 
+        class="joystick-zone"
+        @touchstart="onJoystickStart"
+        @touchmove="onJoystickMove"
+        @touchend="onJoystickEnd"
+      >
+        <div class="joystick-base">
+          <div 
+            class="joystick-knob"
+            :style="{ 
+              transform: `translate(${joystickPos.x}px, ${joystickPos.y}px)` 
+            }"
+          ></div>
         </div>
       </div>
     </div>
@@ -251,6 +274,7 @@ import { onMounted, onUnmounted, ref, reactive, nextTick, computed, watch } from
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useSocialStore } from '../stores/social'
+import api from '../services/api'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import GUI from 'lil-gui'
@@ -287,6 +311,13 @@ const selectedAlpacaProfile = ref(null)
 
 let homeBackup = null
 
+// Touch/Mobile controls
+const isTouchDevice = ref(false)
+const joystickPos = reactive({ x: 0, y: 0 })
+const joystickInput = reactive({ x: 0, z: 0 })
+let joystickTouchId = null
+let joystickCenter = { x: 0, y: 0 }
+
 const creationData = reactive({
   isPlayer: false,
   name: "",
@@ -317,6 +348,19 @@ const keyState = reactive({
   KeyW: false, KeyS: false, KeyA: false, KeyD: false
 })
 
+// Movement configuration for smoother controls
+const movementConfig = reactive({
+  baseSpeed: 0.15,           // Base movement speed
+  acceleration: 0.02,        // How fast to reach full speed
+  deceleration: 0.08,        // How fast to slow down
+  maxSpeed: 0.25,            // Maximum speed cap
+  turnSpeed: 0.15,           // How fast to turn towards movement direction
+  diagonalNormalize: true    // Normalize diagonal movement
+})
+
+// Current velocity for smooth movement
+const playerVelocity = reactive({ x: 0, z: 0 })
+
 const presetColors = [
   '#f5f5dc', '#ffffff', '#8B4513', '#D2691E', '#808080',
   '#FFB6C1', '#ADD8E6', '#90EE90', '#DDA0DD', '#F0E68C'
@@ -343,6 +387,9 @@ const materials = {}
 onMounted(async () => {
   try {
     await nextTick()
+    
+    // Detect touch device
+    isTouchDevice.value = 'ontouchstart' in window || navigator.maxTouchPoints > 0
     
     let attempts = 0
     while (!gameContainer.value && attempts < 10) {
@@ -497,11 +544,87 @@ const updateAlpacas = (delta) => {
     const speed = data.speed * 60 * delta
 
     if (data.aiState === 'controlled' && data.id === activeAlpacaId.value) {
-      // Player Control
-      if (keyState.ArrowUp || keyState.KeyW) { data.z -= speed; moving = true }
-      if (keyState.ArrowDown || keyState.KeyS) { data.z += speed; moving = true }
-      if (keyState.ArrowLeft || keyState.KeyA) { data.x -= speed; moving = true }
-      if (keyState.ArrowRight || keyState.KeyD) { data.x += speed; moving = true }
+      // Player Control with smooth velocity-based movement
+      let inputX = 0
+      let inputZ = 0
+      
+      // Get input direction from keyboard
+      if (keyState.ArrowUp || keyState.KeyW) inputZ = -1
+      if (keyState.ArrowDown || keyState.KeyS) inputZ = 1
+      if (keyState.ArrowLeft || keyState.KeyA) inputX = -1
+      if (keyState.ArrowRight || keyState.KeyD) inputX = 1
+      
+      // Add joystick input for mobile
+      if (joystickInput.x !== 0 || joystickInput.z !== 0) {
+        inputX = joystickInput.x
+        inputZ = joystickInput.z
+      }
+      
+      // Normalize diagonal movement to prevent faster diagonal speed
+      if (movementConfig.diagonalNormalize && inputX !== 0 && inputZ !== 0) {
+        const magnitude = Math.sqrt(inputX * inputX + inputZ * inputZ)
+        inputX /= magnitude
+        inputZ /= magnitude
+      }
+      
+      // *** CAMERA-RELATIVE MOVEMENT ***
+      // Transform input direction based on camera's horizontal rotation
+      // This makes WASD/arrows always move relative to where the camera is facing
+      if (inputX !== 0 || inputZ !== 0) {
+        const cameraAngle = controls.getAzimuthalAngle()
+        const cos = Math.cos(cameraAngle)
+        const sin = Math.sin(cameraAngle)
+        
+        // Rotate input vector by camera angle
+        const worldX = inputX * cos - inputZ * sin
+        const worldZ = inputX * sin + inputZ * cos
+        
+        inputX = worldX
+        inputZ = worldZ
+      }
+      
+      // Apply acceleration/deceleration for smooth movement
+      const targetVelX = inputX * movementConfig.baseSpeed
+      const targetVelZ = inputZ * movementConfig.baseSpeed
+      
+      // Smoothly interpolate velocity
+      if (inputX !== 0 || inputZ !== 0) {
+        playerVelocity.x += (targetVelX - playerVelocity.x) * movementConfig.acceleration * 60 * delta
+        playerVelocity.z += (targetVelZ - playerVelocity.z) * movementConfig.acceleration * 60 * delta
+      } else {
+        // Apply deceleration when no input
+        playerVelocity.x *= (1 - movementConfig.deceleration)
+        playerVelocity.z *= (1 - movementConfig.deceleration)
+        
+        // Stop completely if very slow
+        if (Math.abs(playerVelocity.x) < 0.001) playerVelocity.x = 0
+        if (Math.abs(playerVelocity.z) < 0.001) playerVelocity.z = 0
+      }
+      
+      // Clamp velocity to max speed
+      const currentSpeed = Math.sqrt(playerVelocity.x ** 2 + playerVelocity.z ** 2)
+      if (currentSpeed > movementConfig.maxSpeed) {
+        const scale = movementConfig.maxSpeed / currentSpeed
+        playerVelocity.x *= scale
+        playerVelocity.z *= scale
+      }
+      
+      // Apply velocity to position
+      if (Math.abs(playerVelocity.x) > 0.001 || Math.abs(playerVelocity.z) > 0.001) {
+        data.x += playerVelocity.x * 60 * delta
+        data.z += playerVelocity.z * 60 * delta
+        moving = true
+        
+        // Smooth rotation towards movement direction
+        const targetRotation = Math.atan2(playerVelocity.x, playerVelocity.z)
+        let rotDiff = targetRotation - data.yRot
+        
+        // Normalize rotation difference to -PI to PI
+        while (rotDiff > Math.PI) rotDiff -= Math.PI * 2
+        while (rotDiff < -Math.PI) rotDiff += Math.PI * 2
+        
+        data.yRot += rotDiff * movementConfig.turnSpeed
+      }
 
       // Click-to-move
       if (targetPosition.value && !moving) {
@@ -510,13 +633,22 @@ const updateAlpacas = (delta) => {
         const dist = Math.sqrt(dx * dx + dz * dz)
         
         if (dist > 0.5) {
-          data.x += (dx / dist) * speed
-          data.z += (dz / dist) * speed
+          // Use same smooth velocity system for click-to-move
+          const targetVelX = (dx / dist) * movementConfig.baseSpeed
+          const targetVelZ = (dz / dist) * movementConfig.baseSpeed
+          
+          playerVelocity.x += (targetVelX - playerVelocity.x) * movementConfig.acceleration * 60 * delta
+          playerVelocity.z += (targetVelZ - playerVelocity.z) * movementConfig.acceleration * 60 * delta
+          
+          data.x += playerVelocity.x * 60 * delta
+          data.z += playerVelocity.z * 60 * delta
           data.yRot = Math.atan2(dx, dz)
           moving = true
         } else {
           targetPosition.value = null
           targetMarker.visible = false
+          playerVelocity.x = 0
+          playerVelocity.z = 0
         }
       }
     } else {
@@ -827,7 +959,7 @@ const closeProfile = () => {
 // ==============================
 // 7. SAVE/LOAD SYSTEM
 // ==============================
-const saveGame = () => {
+const saveGame = async () => {
   const saveData = {
     farmName: farmName.value,
     score: score.value,
@@ -836,6 +968,18 @@ const saveGame = () => {
     alpacas: alpacaList.map(a => ({ ...a }))
   }
 
+  // Sync farm stats to backend
+  try {
+    await api.put('/users/me/farm-stats', {
+      coins: score.value,
+      alpacas: alpacaList.length
+    })
+    console.log('✅ Farm stats synced to server')
+  } catch (error) {
+    console.error('Failed to sync farm stats:', error)
+  }
+
+  // Local save to file
   const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -985,6 +1129,29 @@ const returnHome = () => {
   homeBackup = null
 }
 
+const returnToMenu = () => {
+  // Save current progress before returning to menu
+  saveGame()
+  
+  // Reset game state
+  isPlaying.value = false
+  
+  // Reset player velocity
+  playerVelocity.x = 0
+  playerVelocity.z = 0
+  
+  // Clear target position
+  targetPosition.value = null
+  if (targetMarker) targetMarker.visible = false
+  
+  // Reset camera position for menu view
+  if (camera && controls) {
+    camera.position.set(0, 18, 24)
+    controls.target.set(0, 2, 0)
+    controls.update()
+  }
+}
+
 const updateColors = () => {
   if (scene) scene.background = new THREE.Color(palette.sky)
   if (scene?.fog) scene.fog.color = new THREE.Color(palette.sky)
@@ -1050,11 +1217,26 @@ const onResize = () => {
 }
 
 const onKeyDown = (e) => {
-  if (keyState.hasOwnProperty(e.code)) keyState[e.code] = true
+  if (keyState.hasOwnProperty(e.code)) {
+    keyState[e.code] = true
+    
+    // Prevent default for arrow keys to stop page scrolling
+    if (e.code.startsWith('Arrow')) {
+      e.preventDefault()
+    }
+    
+    // Cancel click-to-move when using keyboard
+    if (isPlaying.value && targetPosition.value) {
+      targetPosition.value = null
+      if (targetMarker) targetMarker.visible = false
+    }
+  }
 }
 
 const onKeyUp = (e) => {
-  if (keyState.hasOwnProperty(e.code)) keyState[e.code] = false
+  if (keyState.hasOwnProperty(e.code)) {
+    keyState[e.code] = false
+  }
 }
 
 const onClick = (e) => {
@@ -1101,6 +1283,73 @@ const retryInit = () => {
   init3D()
 }
 
+// ==============================
+// 10. TOUCH/MOBILE CONTROLS
+// ==============================
+const onJoystickStart = (e) => {
+  e.preventDefault()
+  const touch = e.touches[0]
+  joystickTouchId = touch.identifier
+  
+  const rect = e.currentTarget.getBoundingClientRect()
+  joystickCenter = {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2
+  }
+  
+  updateJoystick(touch.clientX, touch.clientY)
+}
+
+const onJoystickMove = (e) => {
+  e.preventDefault()
+  for (const touch of e.touches) {
+    if (touch.identifier === joystickTouchId) {
+      updateJoystick(touch.clientX, touch.clientY)
+      break
+    }
+  }
+}
+
+const onJoystickEnd = (e) => {
+  e.preventDefault()
+  let touchFound = false
+  for (const touch of e.touches) {
+    if (touch.identifier === joystickTouchId) {
+      touchFound = true
+      break
+    }
+  }
+  
+  if (!touchFound) {
+    joystickTouchId = null
+    joystickPos.x = 0
+    joystickPos.y = 0
+    joystickInput.x = 0
+    joystickInput.z = 0
+  }
+}
+
+const updateJoystick = (touchX, touchY) => {
+  const maxRadius = 40
+  
+  let dx = touchX - joystickCenter.x
+  let dy = touchY - joystickCenter.y
+  
+  const distance = Math.sqrt(dx * dx + dy * dy)
+  
+  // Clamp to max radius
+  if (distance > maxRadius) {
+    dx = (dx / distance) * maxRadius
+    dy = (dy / distance) * maxRadius
+  }
+  
+  joystickPos.x = dx
+  joystickPos.y = dy
+  
+  // Convert to normalized input (-1 to 1)
+  joystickInput.x = dx / maxRadius
+  joystickInput.z = dy / maxRadius  // Z is forward/backward
+}
 // ==============================
 // 10. GUI SETUP
 // ==============================
@@ -1249,23 +1498,28 @@ kbd {
 }
 
 .farm-info {
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
   padding: 0.75rem 1.25rem;
   border-radius: 12px;
   color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .farm-name {
   font-weight: bold;
   font-size: 1.1rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .visiting-badge {
-  background: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   margin-left: 0.5rem;
   font-size: 0.8rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .hud-stats {
@@ -1277,19 +1531,30 @@ kbd {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
   padding: 0.75rem 1rem;
   border-radius: 12px;
   color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s;
+}
+
+.stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
 }
 
 .stat-icon {
   font-size: 1.25rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .stat-value {
   font-weight: bold;
   font-size: 1.1rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .hud-side {
@@ -1307,20 +1572,42 @@ kbd {
   height: 50px;
   border-radius: 50%;
   background: rgba(0, 0, 0, 0.6);
-  border: none;
+  border: 2px solid rgba(255, 255, 255, 0.1);
   color: white;
   font-size: 1.5rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .hud-btn:hover {
   background: rgba(0, 0, 0, 0.8);
   transform: scale(1.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.hud-btn:active {
+  transform: scale(0.95);
 }
 
 .return-btn {
-  background: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.return-btn:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+.menu-btn {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.menu-btn:hover {
+  background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
 }
 
 /* Alpaca Sidebar */
@@ -1329,17 +1616,22 @@ kbd {
   left: 1rem;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
   padding: 1rem;
   border-radius: 12px;
   color: white;
-  min-width: 180px;
+  min-width: 200px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .alpaca-sidebar h4 {
   margin: 0 0 0.75rem;
   font-size: 0.9rem;
   opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .alpaca-list {
@@ -1350,6 +1642,25 @@ kbd {
   overflow-y: auto;
 }
 
+/* Custom scrollbar for alpaca list */
+.alpaca-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.alpaca-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.alpaca-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.alpaca-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
 .alpaca-item {
   display: flex;
   align-items: center;
@@ -1357,15 +1668,19 @@ kbd {
   padding: 0.5rem;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  border: 1px solid transparent;
 }
 
 .alpaca-item:hover {
   background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .alpaca-item.active {
-  background: rgba(102, 126, 234, 0.5);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.6) 0%, rgba(118, 75, 162, 0.6) 100%);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
 }
 
 .alpaca-color {
@@ -1373,15 +1688,18 @@ kbd {
   height: 24px;
   border-radius: 50%;
   border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .alpaca-name {
   flex: 1;
   font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .control-badge {
   font-size: 0.8rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 /* Settings Panel */
@@ -1659,6 +1977,62 @@ textarea.form-input {
     right: 1rem;
     transform: none;
     flex-direction: row;
+  }
+}
+
+/* Mobile Touch Controls */
+.mobile-controls {
+  position: fixed;
+  bottom: 2rem;
+  left: 2rem;
+  z-index: 100;
+  touch-action: none;
+}
+
+.joystick-zone {
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.joystick-base {
+  width: 100px;
+  height: 100px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 3px solid rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.joystick-knob {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.05s ease-out;
+}
+
+.mobile-note {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 0.5rem;
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-note {
+    display: block;
+  }
+  
+  .controls-help ul li:first-child,
+  .controls-help ul li:nth-child(4) {
+    display: none;
   }
 }
 </style>

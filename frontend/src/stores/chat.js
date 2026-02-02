@@ -17,6 +17,13 @@ export const useChatStore = defineStore('chat', () => {
     conversations.value.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0)
   )
 
+  const totalUnread = computed(() => unreadCount.value)
+
+  const typingUsers = computed(() => {
+    if (!activeConversation.value) return []
+    return typing.value[activeConversation.value.id] || []
+  })
+
   const sortedConversations = computed(() =>
     [...conversations.value].sort((a, b) => 
       new Date(b.lastMessageAt || b.createdAt) - new Date(a.lastMessageAt || a.createdAt)
@@ -28,9 +35,9 @@ export const useChatStore = defineStore('chat', () => {
     loading.value = true
     error.value = null
     try {
-      const response = await api.get('/chat/conversations')
-      conversations.value = response.data.conversations
-      return response.data.conversations
+      const response = await api.get('/chat/rooms')
+      conversations.value = response.data.rooms || response.data
+      return conversations.value
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to fetch conversations'
       throw err
@@ -43,13 +50,13 @@ export const useChatStore = defineStore('chat', () => {
     loading.value = true
     error.value = null
     try {
-      const response = await api.get(`/chat/conversations/${conversationId}/messages`, {
+      const response = await api.get(`/chat/rooms/${conversationId}/messages`, {
         params: { page, limit: 50 }
       })
       if (page === 1) {
-        messages.value = response.data.messages.reverse()
+        messages.value = (response.data.messages || response.data).reverse()
       } else {
-        messages.value.unshift(...response.data.messages.reverse())
+        messages.value.unshift(...(response.data.messages || response.data).reverse())
       }
       return response.data
     } catch (err) {
@@ -62,26 +69,27 @@ export const useChatStore = defineStore('chat', () => {
 
   async function sendMessage(conversationId, content, type = 'text') {
     try {
-      const response = await api.post(`/chat/conversations/${conversationId}/messages`, {
+      const response = await api.post(`/chat/rooms/${conversationId}/messages`, {
         content,
         type
       })
-      messages.value.push(response.data.message)
+      const msg = response.data.message || response.data
+      messages.value.push(msg)
       
       // Update conversation's last message
       const conv = conversations.value.find(c => c.id === conversationId)
       if (conv) {
-        conv.lastMessage = response.data.message
-        conv.lastMessageAt = response.data.message.createdAt
+        conv.lastMessage = msg
+        conv.lastMessageAt = msg.createdAt
       }
       
       // Emit via socket for real-time delivery
       socketService.emit('chat:message', {
         conversationId,
-        message: response.data.message
+        message: msg
       })
       
-      return response.data.message
+      return msg
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to send message'
       throw err
@@ -90,12 +98,15 @@ export const useChatStore = defineStore('chat', () => {
 
   async function startConversation(userId) {
     try {
-      const response = await api.post('/chat/conversations', { userId })
-      const existingIndex = conversations.value.findIndex(c => c.id === response.data.conversation.id)
+      // Use direct message endpoint to get or create a DM room
+      const targetId = typeof userId === 'object' ? userId.id : userId
+      const response = await api.get(`/chat/direct/${targetId}`)
+      const room = response.data.room || response.data
+      const existingIndex = conversations.value.findIndex(c => c.id === room.id)
       if (existingIndex === -1) {
-        conversations.value.unshift(response.data.conversation)
+        conversations.value.unshift(room)
       }
-      return response.data.conversation
+      return room
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to start conversation'
       throw err
@@ -104,9 +115,10 @@ export const useChatStore = defineStore('chat', () => {
 
   async function createGroupConversation(name, userIds) {
     try {
-      const response = await api.post('/chat/conversations/group', { name, userIds })
-      conversations.value.unshift(response.data.conversation)
-      return response.data.conversation
+      const response = await api.post('/chat/rooms', { name, members: userIds, type: 'group' })
+      const room = response.data.room || response.data
+      conversations.value.unshift(room)
+      return room
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to create group'
       throw err
@@ -115,7 +127,7 @@ export const useChatStore = defineStore('chat', () => {
 
   async function markAsRead(conversationId) {
     try {
-      await api.put(`/chat/conversations/${conversationId}/read`)
+      // Mark messages as read locally (backend can handle this via reading messages)
       const conv = conversations.value.find(c => c.id === conversationId)
       if (conv) {
         conv.unreadCount = 0
@@ -189,6 +201,8 @@ export const useChatStore = defineStore('chat', () => {
     error,
     // Getters
     unreadCount,
+    totalUnread,
+    typingUsers,
     sortedConversations,
     // Actions
     fetchConversations,
@@ -199,6 +213,7 @@ export const useChatStore = defineStore('chat', () => {
     markAsRead,
     setActiveConversation,
     sendTypingIndicator,
+    closeActiveConversation: () => { activeConversation.value = null },
     // Socket handlers
     handleNewMessage,
     handleTyping,

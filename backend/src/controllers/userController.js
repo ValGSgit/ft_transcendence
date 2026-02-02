@@ -39,6 +39,28 @@ export const getUserById = async (req, res) => {
   }
 };
 
+export const getUserByUsername = async (req, res) => {
+  try {
+    const { username } = req.params;
+    const user = User.findByUsername(username);
+
+    if (!user) {
+      return errorResponse(res, 'User not found', 404);
+    }
+
+    const stats = User.getStats(user.id);
+
+    return successResponse(res, {
+      user: sanitizeUser(user),
+      stats,
+      isOwnProfile: req.user.id === user.id
+    });
+  } catch (error) {
+    console.error('Get user by username error:', error);
+    return errorResponse(res, 'Failed to get user', 500);
+  }
+};
+
 export const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -140,11 +162,39 @@ export const getCurrentUser = async (req, res) => {
   }
 };
 
+export const updateFarmStats = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { coins, alpacas } = req.body;
+
+    // Validate input
+    if (coins !== undefined && (typeof coins !== 'number' || coins < 0)) {
+      return errorResponse(res, 'Invalid coins value', 400);
+    }
+    if (alpacas !== undefined && (typeof alpacas !== 'number' || alpacas < 1)) {
+      return errorResponse(res, 'Invalid alpacas value', 400);
+    }
+
+    const stats = User.updateFarmStats(userId, { coins, alpacas });
+
+    if (!stats) {
+      return errorResponse(res, 'Stats not found', 404);
+    }
+
+    return successResponse(res, { stats }, 'Farm stats updated successfully');
+  } catch (error) {
+    console.error('Update farm stats error:', error);
+    return errorResponse(res, 'Failed to update farm stats', 500);
+  }
+};
+
 export default {
   getAllUsers,
   getUserById,
+  getUserByUsername,
   updateProfile,
   searchUsers,
   getUserStats,
   getCurrentUser,
+  updateFarmStats,
 };

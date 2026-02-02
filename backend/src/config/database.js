@@ -157,9 +157,21 @@ const initDatabase = () => {
       highest_score INTEGER DEFAULT 0,
       win_streak INTEGER DEFAULT 0,
       current_streak INTEGER DEFAULT 0,
+      farm_coins INTEGER DEFAULT 0,
+      farm_alpacas INTEGER DEFAULT 1,
+      farm_visits INTEGER DEFAULT 0,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
+
+  // Add farm columns to existing user_stats tables (migration)
+  try {
+    db.exec(`ALTER TABLE user_stats ADD COLUMN farm_coins INTEGER DEFAULT 0`);
+    db.exec(`ALTER TABLE user_stats ADD COLUMN farm_alpacas INTEGER DEFAULT 1`);
+    db.exec(`ALTER TABLE user_stats ADD COLUMN farm_visits INTEGER DEFAULT 0`);
+  } catch (e) {
+    // Columns already exist, ignore
+  }
 
   // Notifications table
   db.exec(`
@@ -183,6 +195,50 @@ const initDatabase = () => {
       user_id INTEGER UNIQUE NOT NULL,
       skill_rating INTEGER DEFAULT 1000,
       joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Posts table for social feed
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS posts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      type TEXT DEFAULT 'text' CHECK(type IN ('text', 'farm', 'achievement', 'game')),
+      visibility TEXT DEFAULT 'public' CHECK(visibility IN ('public', 'friends', 'private')),
+      image TEXT,
+      farm_data TEXT,
+      likes_count INTEGER DEFAULT 0,
+      comments_count INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Post likes table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS post_likes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      post_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(post_id, user_id),
+      FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Post comments table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS post_comments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      post_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);

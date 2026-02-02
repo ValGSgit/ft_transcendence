@@ -1,5 +1,13 @@
 <template>
   <div class="profile-page">
+    <!-- Loading State -->
+    <div v-if="loading && !profile" class="loading-container">
+      <div class="loading-spinner">🦙</div>
+      <p>Loading profile...</p>
+    </div>
+
+    <!-- Profile Content -->
+    <template v-else-if="profile">
     <!-- Cover Photo -->
     <div class="cover-section">
       <div class="cover-photo" :style="{ backgroundImage: `url(${profile?.coverPhoto || defaultCover})` }">
@@ -301,6 +309,7 @@
         </div>
       </div>
     </div>
+    </template>
   </div>
 </template>
 
@@ -361,19 +370,40 @@ watch(() => route.params.username, () => {
 async function loadProfile() {
   loading.value = true
   try {
-    const username = route.params.username
+    const username = route.params.username || authStore.currentUser?.username
     
-    // Load profile data
-    const profileRes = await api.get(`/users/${username}`)
-    profile.value = profileRes.data
+    if (!username) {
+      router.push('/login')
+      return
+    }
+    
+    // Load profile data by username
+    const profileRes = await api.get(`/users/username/${username}`)
+    profile.value = {
+      ...profileRes.data.user,
+      ...profileRes.data.stats,
+      friendCount: profileRes.data.stats?.friendCount || 0,
+      farmLevel: profileRes.data.stats?.farmLevel || 1,
+      totalAlpacas: profileRes.data.stats?.totalAlpacas || 0,
+      totalCoins: profileRes.data.stats?.totalCoins || 0
+    }
 
     // Load user's posts
-    const postsRes = await api.get(`/users/${username}/posts`)
-    userPosts.value = postsRes.data
+    try {
+      const postsRes = await api.get(`/posts/username/${username}`)
+      userPosts.value = postsRes.data.posts || postsRes.data || []
+    } catch (err) {
+      // Posts endpoint might not exist yet
+      userPosts.value = []
+    }
 
-    // Load friends
-    const friendsRes = await api.get(`/users/${username}/friends`)
-    friends.value = friendsRes.data
+    // Load friends list from Friend model
+    try {
+      const friendsRes = await api.get(`/friends`)
+      friends.value = friendsRes.data.filter(f => f.status === 'accepted')
+    } catch (err) {
+      friends.value = []
+    }
 
     // Load achievements
     achievements.value = getAchievements()
@@ -946,4 +976,29 @@ function formatDate(dateString) {
   opacity: 0;
   transform: translateY(-20px);
 }
+
+/* Loading State */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 1rem;
+}
+
+.loading-spinner {
+  font-size: 4rem;
+  animation: bounce 1s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
 </style>
+

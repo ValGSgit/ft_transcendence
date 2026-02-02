@@ -64,12 +64,23 @@ export const useSocialStore = defineStore('social', () => {
 
   async function likePost(postId) {
     try {
-      const response = await api.post(`/posts/${postId}/like`)
       const postIndex = posts.value.findIndex(p => p.id === postId)
       if (postIndex !== -1) {
-        posts.value[postIndex] = response.data.post
+        const post = posts.value[postIndex]
+        // Optimistic update
+        if (post.user_liked) {
+          // Unlike
+          await api.delete(`/posts/${postId}/like`)
+          posts.value[postIndex].user_liked = false
+          posts.value[postIndex].likes_count = Math.max(0, (post.likes_count || 0) - 1)
+        } else {
+          // Like
+          await api.post(`/posts/${postId}/like`)
+          posts.value[postIndex].user_liked = true
+          posts.value[postIndex].likes_count = (post.likes_count || 0) + 1
+        }
       }
-      return response.data.post
+      return posts.value[postIndex]
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to like post'
       throw err

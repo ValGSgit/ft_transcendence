@@ -259,9 +259,16 @@ function handleDelete(postId) {
 
 .card {
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  margin-bottom: 1rem;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card:hover {
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
 }
 
 /* Create Post */
@@ -286,17 +293,24 @@ function handleDelete(postId) {
   flex: 1;
   padding: 0.75rem 1rem;
   background: #f0f2f5;
-  border: none;
-  border-radius: 20px;
+  border: 2px solid transparent;
+  border-radius: 24px;
   text-align: left;
   color: #65676b;
   cursor: pointer;
   font-size: 1rem;
-  transition: background 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .create-post-input:hover {
   background: #e4e6e9;
+  border-color: rgba(102, 126, 234, 0.2);
+}
+
+.create-post-input:focus {
+  background: white;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .create-post-actions {
@@ -308,18 +322,29 @@ function handleDelete(postId) {
 
 .action-btn {
   flex: 1;
-  padding: 0.5rem;
+  padding: 0.625rem;
   background: none;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 0.9rem;
+  font-weight: 500;
   color: #65676b;
-  transition: background 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .action-btn:hover {
   background: #f0f2f5;
+  color: #667eea;
+  transform: translateY(-1px);
+}
+
+.action-btn:active {
+  transform: translateY(0);
 }
 
 /* Posts Feed */

@@ -130,19 +130,28 @@ httpServer.listen(PORT, () => {
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM signal received: closing HTTP server');
-  httpServer.close(() => {
-    console.log('HTTP server closed');
-  });
-});
+let isShuttingDown = false;
 
-process.on('SIGINT', () => {
-  console.log('\nSIGINT signal received: closing HTTP server');
+const shutdown = (signal) => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  
+  console.log(`\n${signal} signal received: closing HTTP server`);
+  
+  // Force exit after 5 seconds if graceful shutdown fails
+  const forceExitTimer = setTimeout(() => {
+    console.log('Could not close connections in time, forcefully shutting down');
+    process.exit(1);
+  }, 5000);
+  
   httpServer.close(() => {
     console.log('HTTP server closed');
+    clearTimeout(forceExitTimer);
     process.exit(0);
   });
-});
+};
+
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+process.once('SIGINT', () => shutdown('SIGINT'));
 
 export default app;

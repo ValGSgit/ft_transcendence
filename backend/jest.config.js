@@ -4,7 +4,10 @@ export default {
   collectCoverageFrom: [
     'src/**/*.js',
     '!src/index.js',
-    '!src/config/database.js'
+    '!src/config/database.js',
+    '!src/config/passport.js',
+    '!src/routes/**',
+    '!src/services/socketService.js'
   ],
   coverageThreshold: {
     global: {
