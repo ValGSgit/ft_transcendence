@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+coverage
+.env
+.env.*
+data/*.db
+*.log
+.git
+.gitignore
+Dockerfile*
+docker-compose*
+README.md
+IMPLEMENTATION.md
+FINAL_SUMMARY.txt
+QUICKSTART.md
+*.sh
+__tests__

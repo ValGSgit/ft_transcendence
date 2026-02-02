@@ -1,0 +1,60 @@
+services:
+  backend:
+    image: transcendence-backend:latest
+    container_name: transcendence_backend_prod
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:-CHANGE_THIS_IN_PRODUCTION}
+      - DATABASE_PATH=/app/data/transcendence.db
+      - CORS_ORIGINS=http://localhost,http://127.0.0.1,http://localhost:80
+      - FRONTEND_URL=http://localhost
+      # OAuth credentials - set these in your environment or .env file
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - GITHUB_CALLBACK_URL=http://localhost:3000/api/auth/github/callback
+    volumes:
+      - backend_data:/app/data
+    restart: unless-stopped
+    networks:
+      - transcendence_network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    image: transcendence-frontend:latest
+    container_name: transcendence_frontend_prod
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=http://localhost:3000
+      - VITE_WS_URL=http://localhost:3000
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - transcendence_network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  backend_data:
+    driver: local
+
+networks:
+  transcendence_network:
+    driver: bridge

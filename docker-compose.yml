@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: transcendence_backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
+      - DATABASE_PATH=/app/data/transcendence.db
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - backend_data:/app/data
+    restart: unless-stopped
+    networks:
+      - transcendence_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: transcendence_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_API_URL=http://localhost:3000
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - transcendence_network
+
+volumes:
+  backend_data:
+
+networks:
+  transcendence_network:
+    driver: bridge
