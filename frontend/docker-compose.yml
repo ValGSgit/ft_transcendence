@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  alpaca-farm:
+    build: .
+    container_name: voxel_alpaca_farm
+    ports:
+      - "5173:5173" # Map computer port to container port
+    volumes:
+      - .:/app # Sync your folder to the container (Live Editing)
+      - /app/node_modules # Don't overwrite container's installed tools
+    environment:
+      - CHOKIDAR_USEPOLLING=true # Force file watch updates

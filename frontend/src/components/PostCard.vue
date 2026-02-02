@@ -1,0 +1,627 @@
+<template>
+  <article class="post-card card">
+    <!-- Post Header -->
+    <header class="post-header">
+      <router-link :to="`/profile/${post.author.username}`" class="author-link">
+        <img :src="post.author.avatar || defaultAvatar" :alt="post.author.username" class="avatar" />
+      </router-link>
+      <div class="post-meta">
+        <router-link :to="`/profile/${post.author.username}`" class="author-name">
+          {{ post.author.username }}
+        </router-link>
+        <div class="post-info">
+          <span class="post-time">{{ formatTime(post.createdAt) }}</span>
+          <span v-if="post.visibility" class="visibility-icon">
+            {{ visibilityIcon }}
+          </span>
+        </div>
+      </div>
+      <div class="post-menu" v-if="isAuthor">
+        <button class="menu-btn" @click="showMenu = !showMenu">⋯</button>
+        <div v-if="showMenu" class="menu-dropdown">
+          <button @click="editPost">✏️ Edit</button>
+          <button @click="$emit('delete', post.id)" class="danger">🗑️ Delete</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Post Content -->
+    <div class="post-content">
+      <p v-if="post.content" class="post-text" :class="{ expanded: isExpanded }">
+        {{ displayContent }}
+        <button v-if="isLongContent" class="see-more" @click="isExpanded = !isExpanded">
+          {{ isExpanded ? 'See less' : 'See more' }}
+        </button>
+      </p>
+
+      <!-- Farm Data Card -->
+      <div v-if="post.farmData" class="farm-card">
+        <div class="farm-header">
+          <span class="farm-icon">🦙</span>
+          <span class="farm-title">{{ post.author.username }}'s Farm</span>
+        </div>
+        <div class="farm-stats">
+          <div class="farm-stat">
+            <span class="stat-value">{{ post.farmData.alpacas?.length || 0 }}</span>
+            <span class="stat-label">Alpacas</span>
+          </div>
+          <div class="farm-stat">
+            <span class="stat-value">{{ post.farmData.score || 0 }}</span>
+            <span class="stat-label">Coins</span>
+          </div>
+          <div class="farm-stat">
+            <span class="stat-value">{{ post.farmData.decorations?.length || 0 }}</span>
+            <span class="stat-label">Decorations</span>
+          </div>
+        </div>
+        <button class="btn btn-farm" @click="visitFarm">
+          🎮 Visit Farm
+        </button>
+      </div>
+
+      <!-- Post Image -->
+      <div v-if="post.image" class="post-image">
+        <img :src="post.image" :alt="post.content" @click="showImageModal = true" />
+      </div>
+    </div>
+
+    <!-- Engagement Stats -->
+    <div v-if="hasEngagement" class="engagement-stats">
+      <div class="likes-count" v-if="post.likes?.length">
+        <span class="reaction-icons">❤️</span>
+        <span>{{ post.likes.length }}</span>
+      </div>
+      <div class="comments-count" v-if="post.comments?.length" @click="showComments = true">
+        {{ post.comments.length }} comments
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="post-actions">
+      <button 
+        class="action-btn" 
+        :class="{ active: isLiked }"
+        @click="$emit('like', post.id)"
+      >
+        {{ isLiked ? '❤️' : '🤍' }} Like
+      </button>
+      <button class="action-btn" @click="showComments = !showComments">
+        💬 Comment
+      </button>
+      <button class="action-btn" @click="$emit('share', post)">
+        🔗 Share
+      </button>
+    </div>
+
+    <!-- Comments Section -->
+    <div v-if="showComments" class="comments-section">
+      <!-- Comment Input -->
+      <div class="comment-input">
+        <img :src="currentUser?.avatar || defaultAvatar" class="avatar-small" />
+        <div class="input-wrapper">
+          <input
+            v-model="newComment"
+            @keyup.enter="submitComment"
+            placeholder="Write a comment..."
+            class="comment-field"
+          />
+          <button 
+            class="send-btn" 
+            @click="submitComment"
+            :disabled="!newComment.trim()"
+          >
+            ➤
+          </button>
+        </div>
+      </div>
+
+      <!-- Comments List -->
+      <div class="comments-list">
+        <div v-for="comment in displayedComments" :key="comment.id" class="comment">
+          <router-link :to="`/profile/${comment.author.username}`">
+            <img :src="comment.author.avatar || defaultAvatar" class="avatar-small" />
+          </router-link>
+          <div class="comment-bubble">
+            <router-link :to="`/profile/${comment.author.username}`" class="comment-author">
+              {{ comment.author.username }}
+            </router-link>
+            <p class="comment-text">{{ comment.content }}</p>
+            <div class="comment-meta">
+              <span class="comment-time">{{ formatTime(comment.createdAt) }}</span>
+              <button class="comment-action">Like</button>
+              <button class="comment-action">Reply</button>
+            </div>
+          </div>
+        </div>
+        
+        <button 
+          v-if="post.comments?.length > 3 && !showAllComments" 
+          class="view-more-comments"
+          @click="showAllComments = true"
+        >
+          View {{ post.comments.length - 3 }} more comments
+        </button>
+      </div>
+    </div>
+  </article>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue'
+import { useAuthStore } from '../stores/auth'
+import { socketService } from '../services/socket'
+
+const props = defineProps({
+  post: {
+    type: Object,
+    required: true
+  }
+})
+
+const emit = defineEmits(['like', 'comment', 'share', 'delete'])
+
+const authStore = useAuthStore()
+const currentUser = computed(() => authStore.currentUser)
+
+const defaultAvatar = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23667eea"/><text x="50" y="65" text-anchor="middle" fill="white" font-size="40">🦙</text></svg>'
+
+const showMenu = ref(false)
+const showComments = ref(false)
+const showAllComments = ref(false)
+const showImageModal = ref(false)
+const isExpanded = ref(false)
+const newComment = ref('')
+
+const isAuthor = computed(() => 
+  currentUser.value?.id === props.post.author.id
+)
+
+const isLiked = computed(() => 
+  props.post.likes?.includes(currentUser.value?.id)
+)
+
+const hasEngagement = computed(() => 
+  props.post.likes?.length > 0 || props.post.comments?.length > 0
+)
+
+const isLongContent = computed(() => 
+  props.post.content?.length > 300
+)
+
+const displayContent = computed(() => {
+  if (!props.post.content) return ''
+  if (isExpanded.value || !isLongContent.value) {
+    return props.post.content
+  }
+  return props.post.content.slice(0, 300) + '...'
+})
+
+const displayedComments = computed(() => {
+  if (!props.post.comments) return []
+  if (showAllComments.value) return props.post.comments
+  return props.post.comments.slice(-3)
+})
+
+const visibilityIcon = computed(() => {
+  const icons = {
+    public: '🌍',
+    friends: '👥',
+    private: '🔒'
+  }
+  return icons[props.post.visibility] || '🌍'
+})
+
+function formatTime(dateString) {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now - date
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMins / 60)
+  const diffDays = Math.floor(diffHours / 24)
+
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m`
+  if (diffHours < 24) return `${diffHours}h`
+  if (diffDays < 7) return `${diffDays}d`
+  
+  return date.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric' 
+  })
+}
+
+function submitComment() {
+  if (!newComment.value.trim()) return
+  emit('comment', props.post.id, newComment.value)
+  newComment.value = ''
+}
+
+function editPost() {
+  showMenu.value = false
+  // TODO: Implement edit functionality
+}
+
+function visitFarm() {
+  socketService.visitFarm(props.post.author.id)
+}
+</script>
+
+<style scoped>
+.post-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+/* Header */
+.post-header {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  gap: 0.75rem;
+}
+
+.author-link {
+  text-decoration: none;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.post-meta {
+  flex: 1;
+}
+
+.author-name {
+  font-weight: 600;
+  color: #333;
+  text-decoration: none;
+}
+
+.author-name:hover {
+  text-decoration: underline;
+}
+
+.post-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #65676b;
+}
+
+.post-menu {
+  position: relative;
+}
+
+.menu-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.25rem;
+  color: #65676b;
+}
+
+.menu-btn:hover {
+  background: #f0f2f5;
+}
+
+.menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  z-index: 10;
+  min-width: 150px;
+}
+
+.menu-dropdown button {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menu-dropdown button:hover {
+  background: #f0f2f5;
+}
+
+.menu-dropdown button.danger {
+  color: #dc2626;
+}
+
+/* Content */
+.post-content {
+  padding: 0 1rem;
+}
+
+.post-text {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #333;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.see-more {
+  background: none;
+  border: none;
+  color: #65676b;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+}
+
+.see-more:hover {
+  text-decoration: underline;
+}
+
+/* Farm Card */
+.farm-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 1rem 0;
+  color: white;
+}
+
+.farm-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.farm-icon {
+  font-size: 1.5rem;
+}
+
+.farm-title {
+  font-weight: 600;
+}
+
+.farm-stats {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 1rem;
+}
+
+.farm-stat {
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+.btn-farm {
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-farm:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Post Image */
+.post-image {
+  margin: 1rem -1rem 0;
+}
+
+.post-image img {
+  width: 100%;
+  max-height: 500px;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+/* Engagement Stats */
+.engagement-stats {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  color: #65676b;
+  font-size: 0.9rem;
+}
+
+.likes-count {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.reaction-icons {
+  font-size: 1rem;
+}
+
+.comments-count {
+  cursor: pointer;
+}
+
+.comments-count:hover {
+  text-decoration: underline;
+}
+
+/* Actions */
+.post-actions {
+  display: flex;
+  border-top: 1px solid #e4e6e9;
+  padding: 0.25rem;
+}
+
+.action-btn {
+  flex: 1;
+  padding: 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #65676b;
+  font-weight: 600;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.action-btn:hover {
+  background: #f0f2f5;
+}
+
+.action-btn.active {
+  color: #e74c3c;
+}
+
+/* Comments */
+.comments-section {
+  padding: 0.5rem 1rem 1rem;
+  border-top: 1px solid #e4e6e9;
+}
+
+.comment-input {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.avatar-small {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.input-wrapper {
+  flex: 1;
+  display: flex;
+  background: #f0f2f5;
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.comment-field {
+  flex: 1;
+  padding: 0.5rem 1rem;
+  background: none;
+  border: none;
+  font-size: 0.9rem;
+}
+
+.comment-field:focus {
+  outline: none;
+}
+
+.send-btn {
+  padding: 0 1rem;
+  background: none;
+  border: none;
+  color: #667eea;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.send-btn:disabled {
+  color: #ccc;
+  cursor: not-allowed;
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.comment {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.comment-bubble {
+  background: #f0f2f5;
+  padding: 0.5rem 0.75rem;
+  border-radius: 18px;
+  max-width: 80%;
+}
+
+.comment-author {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #333;
+  text-decoration: none;
+}
+
+.comment-author:hover {
+  text-decoration: underline;
+}
+
+.comment-text {
+  font-size: 0.9rem;
+  margin: 0.25rem 0 0;
+}
+
+.comment-meta {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+}
+
+.comment-time {
+  color: #65676b;
+}
+
+.comment-action {
+  background: none;
+  border: none;
+  color: #65676b;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.comment-action:hover {
+  text-decoration: underline;
+}
+
+.view-more-comments {
+  background: none;
+  border: none;
+  color: #65676b;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.view-more-comments:hover {
+  text-decoration: underline;
+}
+</style>

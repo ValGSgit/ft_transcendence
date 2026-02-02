@@ -1,0 +1,48 @@
+{
+  "name": "transcendence-backend",
+  "version": "1.0.0",
+  "description": "Enhanced backend server for Transcendence project with authentication, social features, and AI gaming",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "test:ci": "NODE_OPTIONS=--experimental-vm-modules jest --coverage --ci"
+  },
+  "keywords": [
+    "transcendence",
+    "backend",
+    "express",
+    "socket.io",
+    "jwt",
+    "gaming",
+    "ai",
+    "pong"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "better-sqlite3": "^9.2.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "passport": "^0.7.0",
+    "passport-github2": "^0.1.12",
+    "passport-google-oauth20": "^1.0.0",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.6.1",
+    "speakeasy": "^1.0.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.2.0",
+    "jest": "^30.2.0",
+    "nodemon": "^3.0.2",
+    "supertest": "^7.2.2"
+  }
+}
