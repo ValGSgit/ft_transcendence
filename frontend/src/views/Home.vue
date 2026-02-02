@@ -129,9 +129,18 @@ onMounted(async () => {
       const response = await api.get('/users/me')
       const stats = response.data.data.stats
       
+      // Get friends count from friends API
+      let friendsCount = 0
+      try {
+        const friendsRes = await api.get('/friends')
+        friendsCount = friendsRes.data?.count || friendsRes.data?.friends?.length || 0
+      } catch (e) {
+        console.error('Failed to load friends count:', e)
+      }
+      
       // Map backend stats to frontend display
       userStats.value = {
-        friends: 0, // TODO: Count friends from friends API
+        friends: friendsCount,
         alpacas: stats.farm_alpacas || 1,
         coins: stats.farm_coins || 0,
         visits: stats.farm_visits || 0

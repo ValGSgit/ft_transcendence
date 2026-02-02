@@ -61,6 +61,50 @@ export class Friend {
     return stmt.all(userId);
   }
 
+  static getSentRequests(userId) {
+    const stmt = db.prepare(`
+      SELECT fr.*,
+             receiver.id as user_id,
+             receiver.username as receiver_username,
+             receiver.avatar as receiver_avatar,
+             receiver.online as receiver_online
+      FROM friend_requests fr
+      JOIN users receiver ON fr.receiver_id = receiver.id
+      WHERE fr.sender_id = ? AND fr.status = 'pending'
+      ORDER BY fr.created_at DESC
+    `);
+    return stmt.all(userId);
+  }
+
+  static getSuggestions(userId, limit = 10) {
+    // Get users who are not already friends and not blocked
+    const stmt = db.prepare(`
+      SELECT u.id, u.username, u.avatar, u.bio, u.online,
+             (SELECT COUNT(*) FROM friends f2 
+              WHERE (f2.user1_id = u.id OR f2.user2_id = u.id)
+                AND (f2.user1_id IN (SELECT user1_id FROM friends WHERE user2_id = ? UNION SELECT user2_id FROM friends WHERE user1_id = ?)
+                  OR f2.user2_id IN (SELECT user1_id FROM friends WHERE user2_id = ? UNION SELECT user2_id FROM friends WHERE user1_id = ?))
+             ) as mutual_friends
+      FROM users u
+      WHERE u.id != ?
+        AND u.id NOT IN (
+          SELECT user1_id FROM friends WHERE user2_id = ?
+          UNION SELECT user2_id FROM friends WHERE user1_id = ?
+        )
+        AND u.id NOT IN (
+          SELECT blocked_id FROM blocked_users WHERE blocker_id = ?
+          UNION SELECT blocker_id FROM blocked_users WHERE blocked_id = ?
+        )
+        AND u.id NOT IN (
+          SELECT receiver_id FROM friend_requests WHERE sender_id = ? AND status = 'pending'
+          UNION SELECT sender_id FROM friend_requests WHERE receiver_id = ? AND status = 'pending'
+        )
+      ORDER BY mutual_friends DESC, u.created_at DESC
+      LIMIT ?
+    `);
+    return stmt.all(userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, limit);
+  }
+
   static acceptRequest(requestId, userId) {
     const request = this.getRequestById(requestId);
     if (!request || request.receiver_id !== userId) {

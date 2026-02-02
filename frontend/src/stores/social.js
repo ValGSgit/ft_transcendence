@@ -18,11 +18,11 @@ export const useSocialStore = defineStore('social', () => {
 
   // Getters
   const unreadNotifications = computed(() => 
-    notifications.value.filter(n => !n.read).length
+    (notifications.value || []).filter(n => !n.read).length
   )
 
   const pendingRequests = computed(() =>
-    friendRequests.value.filter(r => r.status === 'pending')
+    (friendRequests.value || []).filter(r => r.status === 'pending')
   )
 
   // Post Actions
@@ -31,17 +31,22 @@ export const useSocialStore = defineStore('social', () => {
     error.value = null
     try {
       const response = await api.get('/posts', { params: { page, limit: 10 } })
+      const fetchedPosts = response.data.posts || response.data || []
       if (reset) {
-        posts.value = response.data.posts
+        posts.value = Array.isArray(fetchedPosts) ? fetchedPosts : []
       } else {
-        posts.value.push(...response.data.posts)
+        if (!Array.isArray(posts.value)) posts.value = []
+        posts.value.push(...(Array.isArray(fetchedPosts) ? fetchedPosts : []))
       }
       currentPage.value = page
-      hasMore.value = response.data.hasMore
+      hasMore.value = response.data.hasMore !== undefined ? response.data.hasMore : fetchedPosts.length >= 10
       return response.data
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to fetch posts'
-      throw err
+      if (reset) {
+        posts.value = []
+      }
+      return { posts: [], hasMore: false }
     } finally {
       loading.value = false
     }
@@ -52,8 +57,10 @@ export const useSocialStore = defineStore('social', () => {
     error.value = null
     try {
       const response = await api.post('/posts', postData)
-      posts.value.unshift(response.data.post)
-      return response.data.post
+      const newPost = response.data.post || response.data
+      if (!Array.isArray(posts.value)) posts.value = []
+      posts.value.unshift(newPost)
+      return newPost
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to create post'
       throw err
@@ -104,6 +111,21 @@ export const useSocialStore = defineStore('social', () => {
     }
   }
 
+  async function updatePost(postId, postData) {
+    try {
+      const response = await api.put(`/posts/${postId}`, postData)
+      const updatedPost = response.data.post || response.data
+      const postIndex = posts.value.findIndex(p => p.id === postId)
+      if (postIndex !== -1) {
+        posts.value[postIndex] = { ...posts.value[postIndex], ...updatedPost }
+      }
+      return updatedPost
+    } catch (err) {
+      error.value = err.response?.data?.message || 'Failed to update post'
+      throw err
+    }
+  }
+
   async function deletePost(postId) {
     try {
       await api.delete(`/posts/${postId}`)
@@ -120,11 +142,13 @@ export const useSocialStore = defineStore('social', () => {
     error.value = null
     try {
       const response = await api.get('/friends')
-      friends.value = response.data.friends
-      return response.data.friends
+      friends.value = response.data.friends || response.data || []
+      return friends.value
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to fetch friends'
-      throw err
+      // Return empty array instead of throwing
+      friends.value = []
+      return []
     } finally {
       loading.value = false
     }
@@ -132,18 +156,19 @@ export const useSocialStore = defineStore('social', () => {
 
   async function fetchFriendRequests() {
     try {
-      const response = await api.get('/friends/requests')
-      friendRequests.value = response.data.requests
-      return response.data.requests
+      const response = await api.get('/friends/requests/pending')
+      friendRequests.value = response.data.requests || response.data || []
+      return friendRequests.value
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to fetch requests'
-      throw err
+      friendRequests.value = []
+      return []
     }
   }
 
   async function sendFriendRequest(userId) {
     try {
-      const response = await api.post('/friends/request', { userId })
+      const response = await api.post('/friends/requests', { receiverId: userId })
       return response.data
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to send request'
@@ -153,7 +178,7 @@ export const useSocialStore = defineStore('social', () => {
 
   async function acceptFriendRequest(requestId) {
     try {
-      const response = await api.post(`/friends/accept/${requestId}`)
+      const response = await api.post(`/friends/requests/${requestId}/accept`)
       // Remove from requests, add to friends
       friendRequests.value = friendRequests.value.filter(r => r.id !== requestId)
       if (response.data.friend) {
@@ -168,7 +193,7 @@ export const useSocialStore = defineStore('social', () => {
 
   async function declineFriendRequest(requestId) {
     try {
-      await api.post(`/friends/decline/${requestId}`)
+      await api.post(`/friends/requests/${requestId}/decline`)
       friendRequests.value = friendRequests.value.filter(r => r.id !== requestId)
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to decline request'
@@ -188,7 +213,7 @@ export const useSocialStore = defineStore('social', () => {
 
   async function blockUser(userId) {
     try {
-      await api.post(`/friends/block/${userId}`)
+      await api.post('/friends/block', { userId })
       friends.value = friends.value.filter(f => f.id !== userId)
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to block user'
@@ -275,6 +300,7 @@ export const useSocialStore = defineStore('social', () => {
     // Post Actions
     fetchPosts,
     createPost,
+    updatePost,
     likePost,
     commentOnPost,
     deletePost,

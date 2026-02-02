@@ -14,7 +14,7 @@ export const useChatStore = defineStore('chat', () => {
 
   // Getters
   const unreadCount = computed(() =>
-    conversations.value.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0)
+    (conversations.value || []).reduce((sum, conv) => sum + (conv.unreadCount || 0), 0)
   )
 
   const totalUnread = computed(() => unreadCount.value)
@@ -25,8 +25,8 @@ export const useChatStore = defineStore('chat', () => {
   })
 
   const sortedConversations = computed(() =>
-    [...conversations.value].sort((a, b) => 
-      new Date(b.lastMessageAt || b.createdAt) - new Date(a.lastMessageAt || a.createdAt)
+    [...(conversations.value || [])].sort((a, b) => 
+      new Date(b.lastMessageAt || b.createdAt || 0) - new Date(a.lastMessageAt || a.createdAt || 0)
     )
   )
 
@@ -36,7 +36,8 @@ export const useChatStore = defineStore('chat', () => {
     error.value = null
     try {
       const response = await api.get('/chat/rooms')
-      conversations.value = response.data.rooms || response.data
+      const rooms = response.data.rooms || response.data || []
+      conversations.value = Array.isArray(rooms) ? rooms : []
       return conversations.value
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to fetch conversations'

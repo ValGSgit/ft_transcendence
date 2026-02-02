@@ -104,12 +104,89 @@ export const initializeSocket = (httpServer) => {
   return io;
 };
 
+// Matchmaking queue
+const matchmakingQueue = [];
+
 const handleGameEvents = (socket, io) => {
   // Start matchmaking
   socket.on('game:matchmaking:join', () => {
     console.log(`User ${socket.user.username} joined matchmaking`);
-    socket.emit('game:matchmaking:joined', { status: 'searching' });
-    // TODO: Implement matchmaking logic
+    
+    // Check if user is already in queue
+    const existingIndex = matchmakingQueue.findIndex(p => p.userId === socket.userId);
+    if (existingIndex !== -1) {
+      return socket.emit('game:matchmaking:error', { message: 'Already in queue' });
+    }
+    
+    // Add to queue
+    matchmakingQueue.push({
+      userId: socket.userId,
+      username: socket.user.username,
+      socketId: socket.id,
+      joinedAt: Date.now()
+    });
+    
+    socket.emit('game:matchmaking:joined', { 
+      status: 'searching',
+      queuePosition: matchmakingQueue.length
+    });
+    
+    // Try to match with another player
+    if (matchmakingQueue.length >= 2) {
+      const player1 = matchmakingQueue.shift();
+      const player2 = matchmakingQueue.shift();
+      
+      // Create game
+      try {
+        const game = Game.create(player1.userId, player2.userId, false);
+        
+        // Create game room
+        const gameRoom = `game:${game.id}`;
+        io.sockets.sockets.get(player1.socketId)?.join(gameRoom);
+        io.sockets.sockets.get(player2.socketId)?.join(gameRoom);
+        
+        // Store session
+        activeSessions.set(game.id, {
+          gameId: game.id,
+          player1Id: player1.userId,
+          player2Id: player2.userId,
+          isAI: false
+        });
+        
+        // Start game
+        Game.startGame(game.id);
+        
+        // Notify both players
+        io.to(gameRoom).emit('game:matched', {
+          gameId: game.id,
+          player1: {
+            id: player1.userId,
+            username: player1.username
+          },
+          player2: {
+            id: player2.userId,
+            username: player2.username
+          },
+          config: config.game
+        });
+        
+        console.log(`Game matched: ${player1.username} vs ${player2.username}`);
+      } catch (error) {
+        console.error('Error creating matched game:', error);
+        // Re-add players to queue
+        matchmakingQueue.unshift(player2, player1);
+      }
+    }
+  });
+  
+  // Leave matchmaking
+  socket.on('game:matchmaking:leave', () => {
+    const index = matchmakingQueue.findIndex(p => p.userId === socket.userId);
+    if (index !== -1) {
+      matchmakingQueue.splice(index, 1);
+      socket.emit('game:matchmaking:left');
+      console.log(`User ${socket.user.username} left matchmaking`);
+    }
   });
 
   // Start AI game

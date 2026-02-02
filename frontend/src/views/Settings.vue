@@ -468,11 +468,53 @@ async function saveProfile() {
 }
 
 function changeAvatar() {
-  // TODO: Implement avatar upload
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.onchange = async (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image must be less than 5MB')
+        return
+      }
+      
+      const reader = new FileReader()
+      reader.onload = async (event) => {
+        try {
+          saving.value = true
+          
+          // Update avatar via API
+          await api.put('/users/profile', {
+            avatar: event.target.result
+          })
+          
+          // Update local state
+          profileData.avatar = event.target.result
+          if (authStore.currentUser) {
+            authStore.currentUser.avatar = event.target.result
+          }
+          
+          alert('Avatar updated successfully!')
+        } catch (error) {
+          console.error('Failed to update avatar:', error)
+          alert('Failed to update avatar')
+        } finally {
+          saving.value = false
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+  input.click()
 }
 
 function removeAvatar() {
   profileData.avatar = ''
+  if (authStore.currentUser) {
+    authStore.currentUser.avatar = ''
+  }
 }
 
 async function changePassword() {

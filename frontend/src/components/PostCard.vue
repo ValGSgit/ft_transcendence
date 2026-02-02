@@ -158,7 +158,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['like', 'comment', 'share', 'delete'])
+const emit = defineEmits(['like', 'comment', 'share', 'delete', 'edit'])
 
 const authStore = useAuthStore()
 const currentUser = computed(() => authStore.currentUser)
@@ -261,7 +261,13 @@ const farmData = computed(() => {
 })
 
 function formatTime(dateString) {
+  if (!dateString) return ''
+  
   const date = new Date(dateString)
+  
+  // Check if date is invalid
+  if (isNaN(date.getTime())) return ''
+  
   const now = new Date()
   const diffMs = now - date
   const diffMins = Math.floor(diffMs / 60000)
@@ -287,7 +293,7 @@ function submitComment() {
 
 function editPost() {
   showMenu.value = false
-  // TODO: Implement edit functionality
+  emit('edit', props.post)
 }
 
 function visitFarm() {
@@ -297,9 +303,9 @@ function visitFarm() {
 
 <style scoped>
 .post-card {
-  background: white;
+  background: var(--bg-card);
   border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow);
   margin-bottom: 1rem;
   overflow: hidden;
 }
@@ -329,7 +335,7 @@ function visitFarm() {
 
 .author-name {
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
   text-decoration: none;
 }
 
@@ -342,7 +348,7 @@ function visitFarm() {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8rem;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 .post-menu {
@@ -357,20 +363,20 @@ function visitFarm() {
   border: none;
   cursor: pointer;
   font-size: 1.25rem;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 .menu-btn:hover {
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
 }
 
 .menu-dropdown {
   position: absolute;
   right: 0;
   top: 100%;
-  background: white;
+  background: var(--bg-card);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
   z-index: 10;
   min-width: 150px;
@@ -384,10 +390,11 @@ function visitFarm() {
   border: none;
   text-align: left;
   cursor: pointer;
+  color: var(--text-primary);
 }
 
 .menu-dropdown button:hover {
-  background: #f0f2f5;
+  background: var(--bg-hover);
 }
 
 .menu-dropdown button.danger {
@@ -402,7 +409,7 @@ function visitFarm() {
 .post-text {
   font-size: 1rem;
   line-height: 1.5;
-  color: #333;
+  color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -410,7 +417,7 @@ function visitFarm() {
 .see-more {
   background: none;
   border: none;
-  color: #65676b;
+  color: var(--text-secondary);
   font-weight: 600;
   cursor: pointer;
   padding: 0;
@@ -499,7 +506,7 @@ function visitFarm() {
   display: flex;
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
@@ -524,7 +531,7 @@ function visitFarm() {
 /* Actions */
 .post-actions {
   display: flex;
-  border-top: 1px solid #e4e6e9;
+  border-top: 1px solid var(--border-color);
   padding: 0.25rem;
 }
 
@@ -535,14 +542,14 @@ function visitFarm() {
   border: none;
   cursor: pointer;
   font-size: 0.9rem;
-  color: #65676b;
+  color: var(--text-secondary);
   font-weight: 600;
   border-radius: 4px;
   transition: background 0.2s;
 }
 
 .action-btn:hover {
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
 }
 
 .action-btn.active {
@@ -552,7 +559,7 @@ function visitFarm() {
 /* Comments */
 .comments-section {
   padding: 0.5rem 1rem 1rem;
-  border-top: 1px solid #e4e6e9;
+  border-top: 1px solid var(--border-color);
 }
 
 .comment-input {
@@ -571,7 +578,7 @@ function visitFarm() {
 .input-wrapper {
   flex: 1;
   display: flex;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   border-radius: 20px;
   overflow: hidden;
 }
@@ -582,23 +589,28 @@ function visitFarm() {
   background: none;
   border: none;
   font-size: 0.9rem;
+  color: var(--text-primary);
 }
 
 .comment-field:focus {
   outline: none;
 }
 
+.comment-field::placeholder {
+  color: var(--text-tertiary);
+}
+
 .send-btn {
   padding: 0 1rem;
   background: none;
   border: none;
-  color: #667eea;
+  color: var(--primary);
   cursor: pointer;
   font-size: 1rem;
 }
 
 .send-btn:disabled {
-  color: #ccc;
+  color: var(--text-tertiary);
   cursor: not-allowed;
 }
 
@@ -614,7 +626,7 @@ function visitFarm() {
 }
 
 .comment-bubble {
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   padding: 0.5rem 0.75rem;
   border-radius: 18px;
   max-width: 80%;
@@ -623,7 +635,7 @@ function visitFarm() {
 .comment-author {
   font-weight: 600;
   font-size: 0.85rem;
-  color: #333;
+  color: var(--text-primary);
   text-decoration: none;
 }
 
@@ -634,6 +646,7 @@ function visitFarm() {
 .comment-text {
   font-size: 0.9rem;
   margin: 0.25rem 0 0;
+  color: var(--text-primary);
 }
 
 .comment-meta {
@@ -644,13 +657,13 @@ function visitFarm() {
 }
 
 .comment-time {
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 .comment-action {
   background: none;
   border: none;
-  color: #65676b;
+  color: var(--text-secondary);
   font-weight: 600;
   cursor: pointer;
   padding: 0;
@@ -663,7 +676,7 @@ function visitFarm() {
 .view-more-comments {
   background: none;
   border: none;
-  color: #65676b;
+  color: var(--text-secondary);
   font-weight: 600;
   cursor: pointer;
   padding: 0.5rem 0;

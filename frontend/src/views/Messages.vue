@@ -27,11 +27,11 @@
           @click="selectConversation(conversation)"
         >
           <div class="avatar-wrapper">
-            <img :src="conversation.user.avatar || defaultAvatar" class="avatar" />
-            <span v-if="conversation.user.isOnline" class="online-dot"></span>
+            <img :src="getConversationUser(conversation).avatar || defaultAvatar" class="avatar" />
+            <span v-if="getConversationUser(conversation).isOnline" class="online-dot"></span>
           </div>
           <div class="conversation-info">
-            <span class="conversation-name">{{ conversation.user.username }}</span>
+            <span class="conversation-name">{{ getConversationUser(conversation).username }}</span>
             <span class="last-message">
               {{ formatLastMessage(conversation.lastMessage) }}
             </span>
@@ -55,15 +55,15 @@
       <template v-if="activeConversation">
         <!-- Chat Header -->
         <header class="chat-header">
-          <router-link :to="`/profile/${activeConversation.user.username}`" class="chat-user">
+          <router-link :to="`/profile/${getConversationUser(activeConversation).username}`" class="chat-user">
             <div class="avatar-wrapper">
-              <img :src="activeConversation.user.avatar || defaultAvatar" class="avatar" />
-              <span v-if="activeConversation.user.isOnline" class="online-dot"></span>
+              <img :src="getConversationUser(activeConversation).avatar || defaultAvatar" class="avatar" />
+              <span v-if="getConversationUser(activeConversation).isOnline" class="online-dot"></span>
             </div>
             <div class="user-info">
-              <span class="username">{{ activeConversation.user.username }}</span>
+              <span class="username">{{ getConversationUser(activeConversation).username }}</span>
               <span class="user-status">
-                {{ activeConversation.user.isOnline ? 'Active now' : `Active ${formatTime(activeConversation.user.lastSeen)}` }}
+                {{ getConversationUser(activeConversation).isOnline ? 'Active now' : `Active ${formatTime(getConversationUser(activeConversation).lastSeen)}` }}
               </span>
             </div>
           </router-link>
@@ -79,37 +79,37 @@
           <div 
             v-for="(message, index) in messages" 
             :key="message.id"
-            :class="['message', { own: message.senderId === currentUser?.id }]"
+            :class="['message', { own: message.senderId === currentUser?.id || message.sender_id === currentUser?.id }]"
           >
             <!-- Date Separator -->
             <div 
               v-if="shouldShowDate(message, messages[index - 1])"
               class="date-separator"
             >
-              <span>{{ formatDate(message.createdAt) }}</span>
+              <span>{{ formatDate(message.createdAt || message.created_at) }}</span>
             </div>
 
             <div class="message-content">
               <img 
-                v-if="message.senderId !== currentUser?.id"
-                :src="activeConversation.user.avatar || defaultAvatar" 
+                v-if="(message.senderId || message.sender_id) !== currentUser?.id"
+                :src="getConversationUser(activeConversation).avatar || defaultAvatar" 
                 class="message-avatar"
               />
               <div class="message-bubble">
                 <p class="message-text">{{ message.content }}</p>
                 
                 <!-- Farm Share -->
-                <div v-if="message.farmData" class="shared-farm">
+                <div v-if="message.farmData || message.farm_data" class="shared-farm">
                   <div class="farm-preview">
                     <span class="farm-icon">🦙</span>
                     <div class="farm-info">
-                      <span class="farm-title">{{ message.farmData.title }}</span>
+                      <span class="farm-title">{{ (message.farmData || message.farm_data).title }}</span>
                       <span class="farm-stats">
-                        {{ message.farmData.alpacas }} alpacas • {{ message.farmData.coins }} coins
+                        {{ (message.farmData || message.farm_data).alpacas }} alpacas • {{ (message.farmData || message.farm_data).coins }} coins
                       </span>
                     </div>
                   </div>
-                  <button class="visit-btn" @click="visitUserFarm(message.farmData.userId)">
+                  <button class="visit-btn" @click="visitUserFarm((message.farmData || message.farm_data).userId)">
                     Visit Farm
                   </button>
                 </div>
@@ -117,14 +117,14 @@
                 <!-- Image -->
                 <img v-if="message.image" :src="message.image" class="message-image" />
 
-                <span class="message-time">{{ formatMessageTime(message.createdAt) }}</span>
+                <span class="message-time">{{ formatMessageTime(message.createdAt || message.created_at) }}</span>
               </div>
             </div>
           </div>
 
           <!-- Typing Indicator -->
           <div v-if="isTyping" class="typing-indicator">
-            <img :src="activeConversation.user.avatar || defaultAvatar" class="message-avatar" />
+            <img :src="getConversationUser(activeConversation).avatar || defaultAvatar" class="message-avatar" />
             <div class="typing-bubble">
               <span class="dot"></span>
               <span class="dot"></span>
@@ -182,8 +182,8 @@
       
       <div class="info-content">
         <div class="info-user">
-          <img :src="activeConversation.user.avatar || defaultAvatar" class="info-avatar" />
-          <h4>{{ activeConversation.user.username }}</h4>
+          <img :src="getConversationUser(activeConversation).avatar || defaultAvatar" class="info-avatar" />
+          <h4>{{ getConversationUser(activeConversation).username || 'Chat' }}</h4>
         </div>
 
         <div class="info-actions">
@@ -277,25 +277,41 @@ const sharedMedia = ref([])
 const typingTimeout = ref(null)
 
 const currentUser = computed(() => authStore.currentUser)
-const conversations = computed(() => chatStore.conversations)
+const conversations = computed(() => chatStore.conversations || [])
 const activeConversation = computed(() => chatStore.activeConversation)
-const messages = computed(() => chatStore.messages)
-const isTyping = computed(() => chatStore.typingUsers.includes(activeConversation.value?.user.id))
+const messages = computed(() => chatStore.messages || [])
+const isTyping = computed(() => (chatStore.typingUsers || []).includes(activeConversation.value?.user?.id))
+
+// Helper to get user from conversation (handles different API response formats)
+function getConversationUser(conv) {
+  if (!conv) return { username: 'Unknown', avatar: null, isOnline: false }
+  // Direct message with user property
+  if (conv.user) return conv.user
+  // Room with members array
+  if (conv.members && conv.members.length > 0) {
+    const otherMember = conv.members.find(m => m.id !== currentUser.value?.id)
+    return otherMember || conv.members[0] || { username: conv.name || 'Chat', avatar: null }
+  }
+  // Room with name only
+  return { username: conv.name || 'Chat', avatar: null, isOnline: false }
+}
 
 const filteredConversations = computed(() => {
-  if (!searchQuery.value) return conversations.value
+  const list = conversations.value || []
+  if (!searchQuery.value) return list
   const query = searchQuery.value.toLowerCase()
-  return conversations.value.filter(c =>
-    c.user.username.toLowerCase().includes(query) ||
-    c.lastMessage?.content.toLowerCase().includes(query)
-  )
+  return list.filter(c => {
+    const user = getConversationUser(c)
+    return user.username?.toLowerCase().includes(query) ||
+      c.lastMessage?.content?.toLowerCase().includes(query)
+  })
 })
 
 const searchedFriends = computed(() => {
-  const friends = socialStore.friends
+  const friends = socialStore.friends || []
   if (!newMessageSearch.value) return friends
   const query = newMessageSearch.value.toLowerCase()
-  return friends.filter(f => f.username.toLowerCase().includes(query))
+  return friends.filter(f => f.username?.toLowerCase().includes(query))
 })
 
 onMounted(() => {
@@ -316,7 +332,10 @@ function selectConversation(conversation) {
 }
 
 function startNewConversation(friend) {
-  const existing = conversations.value.find(c => c.user.id === friend.id)
+  const existing = (conversations.value || []).find(c => {
+    const user = getConversationUser(c)
+    return user.id === friend.id
+  })
   if (existing) {
     selectConversation(existing)
   } else {
@@ -352,28 +371,76 @@ function scrollToBottom() {
 }
 
 function attachImage() {
-  // TODO: Implement image attachment
+  // Create a file input and trigger it
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.onchange = (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        // Send message with image
+        chatStore.sendMessage(activeConversation.value.id, {
+          content: newMessage.value || '📷 Image',
+          image: event.target.result
+        })
+        newMessage.value = ''
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+  input.click()
 }
 
 function shareFarm() {
-  // TODO: Implement farm sharing
-}
-
-function visitFarm() {
-  router.push(`/game?visit=${activeConversation.value.user.username}`)
+  // Get farm data from localStorage
+  const farmData = localStorage.getItem('alpacaFarm')
+  if (farmData) {
+    const farm = JSON.parse(farmData)
+    const currentUserData = authStore.currentUser
+    chatStore.sendMessage(activeConversation.value.id, {
+      content: `🦙 Check out my farm!`,
+      farmData: {
+        title: `${currentUserData?.username || 'My'}'s Farm`,
+        alpacas: farm.alpacas?.length || 0,
+        coins: farm.score || farm.coins || 0,
+        userId: currentUserData?.id
+      }
+    })
+  } else {
+    // No farm data yet
+    chatStore.sendMessage(activeConversation.value.id, {
+      content: `🦙 I just started my alpaca farm adventure! Come visit!`
+    })
+  }
 }
 
 function visitUserFarm(userId) {
-  // TODO: Get username from userId
-  router.push('/game')
+  router.push(`/game?visitId=${userId}`)
+}
+
+function visitFarm() {
+  const user = getConversationUser(activeConversation.value)
+  if (user.username) {
+    router.push(`/game?visit=${user.username}`)
+  } else {
+    router.push('/game')
+  }
 }
 
 function visitProfile() {
-  router.push(`/profile/${activeConversation.value.user.username}`)
+  const user = getConversationUser(activeConversation.value)
+  if (user.username) {
+    router.push(`/profile/${user.username}`)
+  }
 }
 
 function startGame() {
-  socketService.challengeToGame(activeConversation.value.user.id)
+  const user = getConversationUser(activeConversation.value)
+  if (user.id) {
+    socketService.challengeToGame(user.id)
+  }
 }
 
 function muteConversation() {
@@ -437,14 +504,14 @@ function shouldShowDate(current, previous) {
 .messages-page {
   display: flex;
   height: calc(100vh - 60px);
-  background: #f0f2f5;
+  background: var(--bg-secondary);
 }
 
 /* Conversations Sidebar */
 .conversations-sidebar {
   width: 340px;
-  background: white;
-  border-right: 1px solid #e4e6e9;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
 }
@@ -454,8 +521,8 @@ function shouldShowDate(current, previous) {
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem 1rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 242, 245, 0.8) 100%);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-card);
   backdrop-filter: blur(10px);
 }
 
@@ -463,28 +530,25 @@ function shouldShowDate(current, previous) {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--primary);
 }
 
 .new-message-btn {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--primary);
   border: none;
   cursor: pointer;
   font-size: 1.1rem;
   color: white;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+  box-shadow: var(--shadow);
 }
 
 .new-message-btn:hover {
   transform: scale(1.1) rotate(5deg);
-  box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: var(--shadow-lg);
 }
 
 .new-message-btn:active {
@@ -495,13 +559,14 @@ function shouldShowDate(current, previous) {
   display: flex;
   align-items: center;
   padding: 0.5rem 1rem;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   margin: 0.5rem 1rem;
   border-radius: 20px;
 }
 
 .search-icon {
   margin-right: 0.5rem;
+  color: var(--text-secondary);
 }
 
 .search-input {
@@ -509,10 +574,15 @@ function shouldShowDate(current, previous) {
   border: none;
   background: none;
   font-size: 0.9rem;
+  color: var(--text-primary);
 }
 
 .search-input:focus {
   outline: none;
+}
+
+.search-input::placeholder {
+  color: var(--text-tertiary);
 }
 
 .conversations-list {
@@ -538,7 +608,7 @@ function shouldShowDate(current, previous) {
   top: 0;
   bottom: 0;
   width: 3px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--primary);
   border-radius: 2px;
   opacity: 0;
   transition: opacity 0.2s;
@@ -549,12 +619,12 @@ function shouldShowDate(current, previous) {
 }
 
 .conversation-item:hover {
-  background: #f0f2f5;
+  background: var(--bg-hover);
   transform: translateX(2px);
 }
 
 .conversation-item.active {
-  background: linear-gradient(90deg, rgba(102, 126, 234, 0.1) 0%, rgba(240, 242, 245, 0.5) 100%);
+  background: var(--bg-tertiary);
 }
 
 .avatar-wrapper {
@@ -575,7 +645,7 @@ function shouldShowDate(current, previous) {
   width: 12px;
   height: 12px;
   background: #22c55e;
-  border: 2px solid white;
+  border: 2px solid var(--bg-card);
   border-radius: 50%;
 }
 
@@ -588,10 +658,11 @@ function shouldShowDate(current, previous) {
 .conversation-name {
   font-weight: 600;
   display: block;
+  color: var(--text-primary);
 }
 
 .last-message {
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 0.85rem;
   white-space: nowrap;
   overflow: hidden;
@@ -607,12 +678,12 @@ function shouldShowDate(current, previous) {
 }
 
 .message-time {
-  color: #65676b;
+  color: var(--text-tertiary);
   font-size: 0.75rem;
 }
 
 .unread-badge {
-  background: #667eea;
+  background: var(--primary);
   color: white;
   font-size: 0.7rem;
   padding: 0.125rem 0.5rem;
@@ -625,14 +696,15 @@ function shouldShowDate(current, previous) {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  background: var(--bg-secondary);
 }
 
 .chat-header {
   display: flex;
   align-items: center;
   padding: 0.75rem 1rem;
-  background: white;
-  border-bottom: 1px solid #e4e6e9;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .chat-user {
@@ -655,10 +727,11 @@ function shouldShowDate(current, previous) {
 .username {
   font-weight: 600;
   display: block;
+  color: var(--text-primary);
 }
 
 .user-status {
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 0.8rem;
 }
 
@@ -671,14 +744,15 @@ function shouldShowDate(current, previous) {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   border: none;
   cursor: pointer;
   font-size: 1rem;
+  color: var(--text-secondary);
 }
 
 .action-btn:hover {
-  background: #e4e6e9;
+  background: var(--bg-hover);
 }
 
 /* Messages */
@@ -694,11 +768,11 @@ function shouldShowDate(current, previous) {
 }
 
 .date-separator span {
-  background: #e4e6e9;
+  background: var(--bg-tertiary);
   padding: 0.25rem 1rem;
   border-radius: 20px;
   font-size: 0.8rem;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 .message {
@@ -723,13 +797,14 @@ function shouldShowDate(current, previous) {
 
 .message-bubble {
   max-width: 60%;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   padding: 0.75rem 1rem;
   border-radius: 18px;
+  color: var(--text-primary);
 }
 
 .message.own .message-bubble {
-  background: #667eea;
+  background: var(--primary);
   color: white;
 }
 
@@ -798,7 +873,7 @@ function shouldShowDate(current, previous) {
 }
 
 .typing-bubble {
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   padding: 0.75rem 1rem;
   border-radius: 18px;
   display: flex;
@@ -808,7 +883,7 @@ function shouldShowDate(current, previous) {
 .typing-bubble .dot {
   width: 8px;
   height: 8px;
-  background: #65676b;
+  background: var(--text-secondary);
   border-radius: 50%;
   animation: typing 1.4s infinite;
 }
@@ -831,8 +906,8 @@ function shouldShowDate(current, previous) {
   display: flex;
   align-items: flex-end;
   padding: 0.75rem 1rem;
-  background: white;
-  border-top: 1px solid #e4e6e9;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-color);
   gap: 0.5rem;
 }
 
@@ -849,15 +924,16 @@ function shouldShowDate(current, previous) {
   border: none;
   cursor: pointer;
   font-size: 1.1rem;
+  color: var(--text-secondary);
 }
 
 .input-action-btn:hover {
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
 }
 
 .input-wrapper {
   flex: 1;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   border-radius: 20px;
   padding: 0.5rem 1rem;
 }
@@ -869,17 +945,22 @@ function shouldShowDate(current, previous) {
   resize: none;
   font-size: 0.95rem;
   max-height: 100px;
+  color: var(--text-primary);
 }
 
 .message-input:focus {
   outline: none;
 }
 
+.message-input::placeholder {
+  color: var(--text-tertiary);
+}
+
 .send-btn {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #667eea;
+  background: var(--primary);
   color: white;
   border: none;
   cursor: pointer;
@@ -887,7 +968,8 @@ function shouldShowDate(current, previous) {
 }
 
 .send-btn:disabled {
-  background: #ccc;
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
   cursor: not-allowed;
 }
 
@@ -897,11 +979,12 @@ function shouldShowDate(current, previous) {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--bg-secondary);
 }
 
 .empty-chat {
   text-align: center;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 .empty-icon {
@@ -911,7 +994,7 @@ function shouldShowDate(current, previous) {
 
 .empty-chat h3 {
   margin: 0 0 0.5rem;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .empty-chat p {
@@ -921,14 +1004,14 @@ function shouldShowDate(current, previous) {
 .empty-conversations {
   text-align: center;
   padding: 2rem;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 /* Chat Info Sidebar */
 .chat-info-sidebar {
   width: 280px;
-  background: white;
-  border-left: 1px solid #e4e6e9;
+  background: var(--bg-card);
+  border-left: 1px solid var(--border-color);
 }
 
 .info-header {
@@ -936,20 +1019,22 @@ function shouldShowDate(current, previous) {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  border-bottom: 1px solid #e4e6e9;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .info-header h3 {
   margin: 0;
+  color: var(--text-primary);
 }
 
 .close-btn {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   border: none;
   cursor: pointer;
+  color: var(--text-secondary);
 }
 
 .info-content {
@@ -970,6 +1055,7 @@ function shouldShowDate(current, previous) {
 
 .info-user h4 {
   margin: 0;
+  color: var(--text-primary);
 }
 
 .info-actions {
@@ -984,15 +1070,16 @@ function shouldShowDate(current, previous) {
   gap: 0.75rem;
   width: 100%;
   padding: 0.75rem;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   border: none;
   border-radius: 8px;
   cursor: pointer;
   text-align: left;
+  color: var(--text-primary);
 }
 
 .info-actions button:hover {
-  background: #e4e6e9;
+  background: var(--bg-hover);
 }
 
 .info-actions .icon {
@@ -1001,6 +1088,7 @@ function shouldShowDate(current, previous) {
 
 .shared-media h5 {
   margin: 1.5rem 0 0.75rem;
+  color: var(--text-primary);
 }
 
 .media-grid {
@@ -1028,12 +1116,13 @@ function shouldShowDate(current, previous) {
 }
 
 .modal {
-  background: white;
+  background: var(--bg-card);
   border-radius: 12px;
   width: 90%;
   max-width: 500px;
   max-height: 80vh;
   overflow: hidden;
+  box-shadow: var(--shadow-lg);
 }
 
 .modal-header {
@@ -1041,11 +1130,12 @@ function shouldShowDate(current, previous) {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  border-bottom: 1px solid #e4e6e9;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .modal-header h3 {
   margin: 0;
+  color: var(--text-primary);
 }
 
 .modal-content {
@@ -1068,7 +1158,7 @@ function shouldShowDate(current, previous) {
 }
 
 .friend-item:hover {
-  background: #f0f2f5;
+  background: var(--bg-hover);
 }
 
 .friend-item .avatar {
@@ -1078,12 +1168,13 @@ function shouldShowDate(current, previous) {
 
 .friend-name {
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .no-results {
   text-align: center;
   padding: 2rem;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 /* Buttons */
@@ -1096,12 +1187,12 @@ function shouldShowDate(current, previous) {
 }
 
 .btn-primary {
-  background: #667eea;
+  background: var(--primary);
   color: white;
 }
 
 .btn-primary:hover {
-  background: #5a6fd6;
+  background: var(--primary-hover);
 }
 
 /* Responsive */
