@@ -27,12 +27,14 @@ export const config = {
 
   // CORS Configuration
   cors: {
-    origins: [
-      'http://localhost:4200', // Angular
-      'http://localhost:5173', // Vue
-      'http://127.0.0.1:4200',
-      'http://127.0.0.1:5173',
-    ],
+    origins: process.env.CORS_ORIGINS 
+      ? process.env.CORS_ORIGINS.split(',')
+      : [
+        'http://localhost:4200', // Angular
+        'http://localhost:5173', // Vue
+        'http://127.0.0.1:4200',
+        'http://127.0.0.1:5173',
+      ],
   },
 
   // Rate Limiting

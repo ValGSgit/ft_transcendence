@@ -2,7 +2,10 @@ import { io } from 'socket.io-client'
 import { useSocialStore } from '../stores/social'
 import { useChatStore } from '../stores/chat'
 
-const SOCKET_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3000'
+// In production, use relative URLs to leverage nginx proxy
+// In development, use the full URL
+const isProduction = import.meta.env.PROD
+const SOCKET_URL = isProduction ? '' : (import.meta.env.VITE_WS_URL || 'http://localhost:3000')
 
 class SocketService {
   constructor() {
@@ -23,7 +26,8 @@ class SocketService {
       reconnection: true,
       reconnectionAttempts: this.maxReconnectAttempts,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000
+      reconnectionDelayMax: 5000,
+      path: '/socket.io/'
     })
 
     this.setupEventListeners()

@@ -201,7 +201,10 @@ async function handleRegister() {
 }
 
 function handleOAuthLogin(provider) {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+  // In production, use relative URL to leverage nginx proxy
+  // In development, use the full URL
+  const isProduction = import.meta.env.PROD
+  const apiUrl = isProduction ? '' : (import.meta.env.VITE_API_URL || 'http://localhost:3000')
   window.location.href = `${apiUrl}/api/auth/${provider}`
 }
 </script>

@@ -37,6 +37,11 @@ A comprehensive, production-ready backend for the Transcendence project featurin
 - **Message Search**: Find messages across conversations
 
 ### Game System
+- **Pong Game** with configurable parameters
+- **AI Opponents** with three difficulty levels:
+  - **Easy**: Slower reactions, 60% accuracy
+  - **Medium**: Balanced gameplay, 80% accuracy
+  - **Hard**: Fast reactions, 95% accuracy
 - **Multiplayer**: Play against other users
 - **Matchmaking**: Queue-based player matching (ready for implementation)
 - **Game Statistics**: Track wins, losses, scores, and streaks

@@ -29,3 +29,4 @@ npm-debug.log*
 
 # Angular
 .angular/
+.env.production

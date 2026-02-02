@@ -1,25 +1,29 @@
 # Multi-stage build for production
-FROM node:20-alpine AS builder
+# Using Debian slim for glibc compatibility with better-sqlite3
+FROM node:20-slim AS builder
 
 WORKDIR /app
+
+# Install build dependencies for native modules (better-sqlite3)
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install ALL dependencies (native modules need to be built in this environment)
+RUN npm ci
 
 # Copy application files
 COPY . .
 
-# Production stage
-FROM node:20-alpine
+# Production stage - same base for glibc compatibility
+FROM node:20-slim
 
 WORKDIR /app
 
 # Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+RUN groupadd -g 1001 nodejs && \
+    useradd -u 1001 -g nodejs nodejs
 
 # Copy dependencies and app from builder
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
