@@ -351,8 +351,8 @@ const keyState = reactive({
 // Movement configuration for smoother controls
 const movementConfig = reactive({
   baseSpeed: 0.15,           // Base movement speed
-  acceleration: 0.02,        // How fast to reach full speed
-  deceleration: 0.08,        // How fast to slow down
+  acceleration: 1,        // How fast to reach full speed
+  deceleration: 1,        // How fast to slow down
   maxSpeed: 0.25,            // Maximum speed cap
   turnSpeed: 0.15,           // How fast to turn towards movement direction
   diagonalNormalize: true    // Normalize diagonal movement
@@ -549,10 +549,17 @@ const updateAlpacas = (delta) => {
       let inputZ = 0
       
       // Get input direction from keyboard
-      if (keyState.ArrowUp || keyState.KeyW) inputZ = -1
-      if (keyState.ArrowDown || keyState.KeyS) inputZ = 1
-      if (keyState.ArrowLeft || keyState.KeyA) inputX = -1
-      if (keyState.ArrowRight || keyState.KeyD) inputX = 1
+      if (keyState.ArrowLeft || keyState.KeyA) {data.yRot += 0.04; moving = true}
+      if (keyState.ArrowRight || keyState.KeyD) {data.yRot -= 0.04; moving = true}
+      let dir = 0, dx = 0, dz = 0
+      if (keyState.ArrowUp || keyState.KeyW) {dir = 1; moving = true}
+      if (keyState.ArrowDown || keyState.KeyS) {dir = -1; moving = true}
+      if (dir !== 0) {
+        dx = Math.sin(data.yRot) * speed * dir
+        dz = Math.cos(data.yRot) * speed * dir
+        data.x += dx
+        data.z += dz
+      }
       
       // Add joystick input for mobile
       if (joystickInput.x !== 0 || joystickInput.z !== 0) {
@@ -693,10 +700,16 @@ const updateAlpacas = (delta) => {
 
     // Walk Animation
     if (moving) {
-      meshObj.walkTime += delta * 10
-      meshObj.legs.forEach((leg, i) => {
-        leg.rotation.x = Math.sin(meshObj.walkTime + i * Math.PI * 0.5) * 0.4
-      })
+        meshObj.walkTime += delta * 12
+        meshObj.bodyGroup.position.y = Math.sin(meshObj.walkTime * 2) * 0.05
+        meshObj.legs[0].rotation.x = Math.sin(meshObj.walkTime) * 0.5
+        meshObj.legs[3].rotation.x = Math.sin(meshObj.walkTime) * 0.5
+        meshObj.legs[1].rotation.x = Math.sin(meshObj.walkTime + Math.PI) * 0.5
+        meshObj.legs[2].rotation.x = Math.sin(meshObj.walkTime + Math.PI) * 0.5
+    } else {
+        const lerp = 0.1
+        meshObj.bodyGroup.position.y = THREE.MathUtils.lerp(meshObj.bodyGroup.position.y, 0, lerp)
+        meshObj.legs.forEach(l => l.rotation.x = THREE.MathUtils.lerp(l.rotation.x, 0, lerp))
     }
 
     // Camera Follow
