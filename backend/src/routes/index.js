@@ -5,6 +5,7 @@ import friendRoutes from './friends.js';
 import chatRoutes from './chat.js';
 import gameRoutes from './game.js';
 import notificationRoutes from './notifications.js';
+import postRoutes from './posts.js';
 
 const router = express.Router();
 
@@ -25,5 +26,6 @@ router.use('/friends', friendRoutes);
 router.use('/chat', chatRoutes);
 router.use('/game', gameRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/posts', postRoutes);
 
 export default router;

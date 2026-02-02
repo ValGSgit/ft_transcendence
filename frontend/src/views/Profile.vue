@@ -388,10 +388,10 @@ async function loadProfile() {
       totalCoins: profileRes.data.stats?.totalCoins || 0
     }
 
-    // Load user's posts (would need backend endpoint)
+    // Load user's posts
     try {
-      const postsRes = await api.get(`/posts/user/${username}`)
-      userPosts.value = postsRes.data
+      const postsRes = await api.get(`/posts/username/${username}`)
+      userPosts.value = postsRes.data.posts || postsRes.data || []
     } catch (err) {
       // Posts endpoint might not exist yet
       userPosts.value = []

@@ -45,6 +45,9 @@
             <span v-if="unreadMessages" class="badge">{{ unreadMessages }}</span>
           </router-link>
           <router-link to="/game" class="nav-link game-link" title="Play Game">🎮</router-link>
+          <button class="nav-link theme-toggle" @click="toggleTheme" :title="isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
+            {{ isDarkMode ? '☀️' : '🌙' }}
+          </button>
         </div>
 
         <!-- User Menu -->
@@ -96,6 +99,10 @@
                 <span class="item-icon">⚙️</span>
                 Settings
               </router-link>
+              <button class="dropdown-item" @click="toggleTheme">
+                <span class="item-icon">{{ isDarkMode ? '☀️' : '🌙' }}</span>
+                {{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}
+              </button>
               <div class="dropdown-divider"></div>
               <button class="dropdown-item" @click="logout">
                 <span class="item-icon">🚪</span>
@@ -107,6 +114,9 @@
 
         <!-- Auth Links (when not logged in) -->
         <div class="nav-auth" v-else>
+          <button class="theme-toggle-btn" @click="toggleTheme" :title="isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
+            {{ isDarkMode ? '☀️' : '🌙' }}
+          </button>
           <router-link to="/login" class="btn btn-secondary">Log In</router-link>
           <router-link to="/register" class="btn btn-primary">Sign Up</router-link>
         </div>
@@ -164,6 +174,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { useSocialStore } from './stores/social'
 import { useChatStore } from './stores/chat'
+import { useThemeStore } from './stores/theme'
 import { socketService } from './services/socket'
 
 const route = useRoute()
@@ -171,6 +182,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const socialStore = useSocialStore()
 const chatStore = useChatStore()
+const themeStore = useThemeStore()
 
 const defaultAvatar = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23667eea"/><text x="50" y="65" text-anchor="middle" fill="white" font-size="40">🦙</text></svg>'
 
@@ -193,6 +205,11 @@ const unreadNotifications = computed(() => notifications.value.filter(n => !n.re
 const unreadMessages = computed(() => chatStore.totalUnread)
 const activeChatUser = computed(() => chatStore.activeConversation?.user)
 const chatMessages = computed(() => chatStore.messages)
+const isDarkMode = computed(() => themeStore.isDarkMode)
+
+function toggleTheme() {
+  themeStore.toggleTheme()
+}
 
 // Watchers
 let searchTimeout = null
@@ -344,9 +361,10 @@ button {
   left: 0;
   right: 0;
   height: 60px;
-  background: white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow);
   z-index: 1000;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .nav-container {
@@ -365,7 +383,7 @@ button {
   gap: 0.5rem;
   font-weight: bold;
   font-size: 1.25rem;
-  color: #667eea;
+  color: var(--primary);
 }
 
 .logo-icon {
@@ -383,14 +401,19 @@ button {
   width: 100%;
   padding: 0.5rem 1rem 0.5rem 2.5rem;
   border: none;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   border-radius: 20px;
   font-size: 0.95rem;
+  color: var(--text-primary);
 }
 
 .nav-search input:focus {
   outline: none;
-  background: #e4e6e9;
+  background: var(--bg-input);
+}
+
+.nav-search input::placeholder {
+  color: var(--text-tertiary);
 }
 
 .nav-search .search-icon {
@@ -406,9 +429,10 @@ button {
   top: 100%;
   left: 0;
   right: 0;
-  background: white;
+  background: var(--bg-card);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
   margin-top: 0.5rem;
   max-height: 300px;
   overflow-y: auto;
@@ -420,10 +444,11 @@ button {
   gap: 0.75rem;
   padding: 0.75rem 1rem;
   cursor: pointer;
+  color: var(--text-primary);
 }
 
 .search-result:hover {
-  background: #f0f2f5;
+  background: var(--bg-hover);
 }
 
 .result-avatar {
@@ -436,7 +461,7 @@ button {
 .search-empty {
   padding: 1rem;
   text-align: center;
-  color: #65676b;
+  color: var(--text-tertiary);
 }
 
 /* Nav Links */
@@ -455,14 +480,41 @@ button {
   font-size: 1.25rem;
   position: relative;
   transition: background 0.2s;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-primary);
 }
 
 .nav-link:hover {
-  background: #f0f2f5;
+  background: var(--bg-hover);
 }
 
 .nav-link.router-link-active {
-  color: #667eea;
+  color: var(--primary);
+}
+
+.theme-toggle {
+  font-size: 1.2rem;
+}
+
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--bg-hover);
+  transform: rotate(15deg);
 }
 
 .game-link {
@@ -499,14 +551,14 @@ button {
   height: 44px;
   border-radius: 50%;
   border: none;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   cursor: pointer;
   font-size: 1.1rem;
   position: relative;
 }
 
 .nav-btn:hover {
-  background: #e4e6e9;
+  background: var(--bg-hover);
 }
 
 /* Profile Button */
@@ -521,13 +573,14 @@ button {
   gap: 0.5rem;
   padding: 0.25rem 0.5rem 0.25rem 0.25rem;
   border: none;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   border-radius: 20px;
   cursor: pointer;
+  color: var(--text-primary);
 }
 
 .profile-btn:hover {
-  background: #e4e6e9;
+  background: var(--bg-hover);
 }
 
 .profile-avatar {
@@ -543,7 +596,7 @@ button {
 
 .dropdown-arrow {
   font-size: 0.6rem;
-  color: #65676b;
+  color: var(--text-tertiary);
 }
 
 /* Dropdowns */
@@ -552,9 +605,10 @@ button {
   position: absolute;
   top: 100%;
   right: 0;
-  background: white;
+  background: var(--bg-card);
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
   margin-top: 0.5rem;
   min-width: 250px;
   overflow: hidden;
@@ -570,17 +624,18 @@ button {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  border-bottom: 1px solid #e4e6e9;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .dropdown-header h4 {
   margin: 0;
+  color: var(--text-primary);
 }
 
 .dropdown-header button {
   background: none;
   border: none;
-  color: #667eea;
+  color: var(--primary);
   cursor: pointer;
   font-size: 0.85rem;
 }
@@ -598,11 +653,11 @@ button {
 }
 
 .notification-item:hover {
-  background: #f0f2f5;
+  background: var(--bg-hover);
 }
 
 .notification-item.unread {
-  background: #e8f4fd;
+  background: rgba(0, 240, 255, 0.1);
 }
 
 .notification-avatar {
@@ -614,17 +669,18 @@ button {
 .notification-content p {
   margin: 0;
   font-size: 0.9rem;
+  color: var(--text-primary);
 }
 
 .notification-time {
   font-size: 0.8rem;
-  color: #65676b;
+  color: var(--text-tertiary);
 }
 
 .notification-empty {
   padding: 2rem;
   text-align: center;
-  color: #65676b;
+  color: var(--text-tertiary);
 }
 
 .dropdown-item {
@@ -638,10 +694,11 @@ button {
   cursor: pointer;
   text-align: left;
   font-size: 0.95rem;
+  color: var(--text-primary);
 }
 
 .dropdown-item:hover {
-  background: #f0f2f5;
+  background: var(--bg-hover);
 }
 
 .item-icon {
@@ -650,7 +707,7 @@ button {
 
 .dropdown-divider {
   height: 1px;
-  background: #e4e6e9;
+  background: var(--border-color);
   margin: 0.5rem 0;
 }
 
@@ -658,6 +715,7 @@ button {
 .nav-auth {
   display: flex;
   gap: 0.5rem;
+  align-items: center;
 }
 
 .btn {
@@ -667,16 +725,26 @@ button {
   font-weight: 600;
   cursor: pointer;
   font-size: 0.9rem;
+  transition: all 0.2s;
 }
 
 .btn-primary {
-  background: #667eea;
-  color: white;
+  background: var(--primary);
+  color: var(--bg-primary);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
 }
 
 .btn-secondary {
-  background: #e4e6e9;
-  color: #333;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-hover);
 }
 
 /* Main Content */
@@ -694,9 +762,11 @@ main.has-navbar {
   bottom: 0;
   right: 1rem;
   width: 328px;
-  background: white;
+  background: var(--bg-card);
   border-radius: 12px 12px 0 0;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+  border-bottom: none;
   z-index: 1000;
 }
 
@@ -705,8 +775,8 @@ main.has-navbar {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  background: #667eea;
-  color: white;
+  background: var(--primary);
+  color: var(--bg-primary);
   border-radius: 12px 12px 0 0;
   cursor: pointer;
 }
@@ -765,41 +835,48 @@ main.has-navbar {
   max-width: 80%;
   padding: 0.5rem 0.75rem;
   border-radius: 18px;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   align-self: flex-start;
 }
 
 .chat-message.own {
-  background: #667eea;
-  color: white;
+  background: var(--primary);
+  color: var(--bg-primary);
   align-self: flex-end;
 }
 
 .chat-input {
   display: flex;
   padding: 0.5rem;
-  border-top: 1px solid #e4e6e9;
+  border-top: 1px solid var(--border-color);
 }
 
 .chat-input input {
   flex: 1;
   padding: 0.5rem 1rem;
   border: none;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   border-radius: 20px;
   font-size: 0.9rem;
+  color: var(--text-primary);
 }
 
 .chat-input input:focus {
   outline: none;
+  background: var(--bg-input);
+}
+
+.chat-input input::placeholder {
+  color: var(--text-tertiary);
 }
 
 .chat-input button {
   width: 36px;
   height: 36px;
   border: none;
-  background: #667eea;
-  color: white;
+  background: var(--primary);
+  color: var(--bg-primary);
   border-radius: 50%;
   margin-left: 0.5rem;
   cursor: pointer;
