@@ -104,6 +104,26 @@
             <li><kbd>Mouse Drag</kbd> - Rotate camera</li>
             <li><kbd>Scroll</kbd> - Zoom in/out</li>
           </ul>
+          <p class="mobile-note">📱 Touch: Use on-screen joystick to move</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Touch Controls -->
+    <div v-if="isEngineReady && isPlaying && isTouchDevice" class="mobile-controls">
+      <div 
+        class="joystick-zone"
+        @touchstart="onJoystickStart"
+        @touchmove="onJoystickMove"
+        @touchend="onJoystickEnd"
+      >
+        <div class="joystick-base">
+          <div 
+            class="joystick-knob"
+            :style="{ 
+              transform: `translate(${joystickPos.x}px, ${joystickPos.y}px)` 
+            }"
+          ></div>
         </div>
       </div>
     </div>
@@ -287,6 +307,13 @@ const selectedAlpacaProfile = ref(null)
 
 let homeBackup = null
 
+// Touch/Mobile controls
+const isTouchDevice = ref(false)
+const joystickPos = reactive({ x: 0, y: 0 })
+const joystickInput = reactive({ x: 0, z: 0 })
+let joystickTouchId = null
+let joystickCenter = { x: 0, y: 0 }
+
 const creationData = reactive({
   isPlayer: false,
   name: "",
@@ -317,6 +344,19 @@ const keyState = reactive({
   KeyW: false, KeyS: false, KeyA: false, KeyD: false
 })
 
+// Movement configuration for smoother controls
+const movementConfig = reactive({
+  baseSpeed: 0.15,           // Base movement speed
+  acceleration: 0.02,        // How fast to reach full speed
+  deceleration: 0.08,        // How fast to slow down
+  maxSpeed: 0.25,            // Maximum speed cap
+  turnSpeed: 0.15,           // How fast to turn towards movement direction
+  diagonalNormalize: true    // Normalize diagonal movement
+})
+
+// Current velocity for smooth movement
+const playerVelocity = reactive({ x: 0, z: 0 })
+
 const presetColors = [
   '#f5f5dc', '#ffffff', '#8B4513', '#D2691E', '#808080',
   '#FFB6C1', '#ADD8E6', '#90EE90', '#DDA0DD', '#F0E68C'
@@ -343,6 +383,9 @@ const materials = {}
 onMounted(async () => {
   try {
     await nextTick()
+    
+    // Detect touch device
+    isTouchDevice.value = 'ontouchstart' in window || navigator.maxTouchPoints > 0
     
     let attempts = 0
     while (!gameContainer.value && attempts < 10) {
@@ -497,11 +540,71 @@ const updateAlpacas = (delta) => {
     const speed = data.speed * 60 * delta
 
     if (data.aiState === 'controlled' && data.id === activeAlpacaId.value) {
-      // Player Control
-      if (keyState.ArrowUp || keyState.KeyW) { data.z -= speed; moving = true }
-      if (keyState.ArrowDown || keyState.KeyS) { data.z += speed; moving = true }
-      if (keyState.ArrowLeft || keyState.KeyA) { data.x -= speed; moving = true }
-      if (keyState.ArrowRight || keyState.KeyD) { data.x += speed; moving = true }
+      // Player Control with smooth velocity-based movement
+      let inputX = 0
+      let inputZ = 0
+      
+      // Get input direction from keyboard
+      if (keyState.ArrowUp || keyState.KeyW) inputZ = -1
+      if (keyState.ArrowDown || keyState.KeyS) inputZ = 1
+      if (keyState.ArrowLeft || keyState.KeyA) inputX = -1
+      if (keyState.ArrowRight || keyState.KeyD) inputX = 1
+      
+      // Add joystick input for mobile
+      if (joystickInput.x !== 0 || joystickInput.z !== 0) {
+        inputX = joystickInput.x
+        inputZ = joystickInput.z
+      }
+      
+      // Normalize diagonal movement to prevent faster diagonal speed
+      if (movementConfig.diagonalNormalize && inputX !== 0 && inputZ !== 0) {
+        const magnitude = Math.sqrt(inputX * inputX + inputZ * inputZ)
+        inputX /= magnitude
+        inputZ /= magnitude
+      }
+      
+      // Apply acceleration/deceleration for smooth movement
+      const targetVelX = inputX * movementConfig.baseSpeed
+      const targetVelZ = inputZ * movementConfig.baseSpeed
+      
+      // Smoothly interpolate velocity
+      if (inputX !== 0 || inputZ !== 0) {
+        playerVelocity.x += (targetVelX - playerVelocity.x) * movementConfig.acceleration * 60 * delta
+        playerVelocity.z += (targetVelZ - playerVelocity.z) * movementConfig.acceleration * 60 * delta
+      } else {
+        // Apply deceleration when no input
+        playerVelocity.x *= (1 - movementConfig.deceleration)
+        playerVelocity.z *= (1 - movementConfig.deceleration)
+        
+        // Stop completely if very slow
+        if (Math.abs(playerVelocity.x) < 0.001) playerVelocity.x = 0
+        if (Math.abs(playerVelocity.z) < 0.001) playerVelocity.z = 0
+      }
+      
+      // Clamp velocity to max speed
+      const currentSpeed = Math.sqrt(playerVelocity.x ** 2 + playerVelocity.z ** 2)
+      if (currentSpeed > movementConfig.maxSpeed) {
+        const scale = movementConfig.maxSpeed / currentSpeed
+        playerVelocity.x *= scale
+        playerVelocity.z *= scale
+      }
+      
+      // Apply velocity to position
+      if (Math.abs(playerVelocity.x) > 0.001 || Math.abs(playerVelocity.z) > 0.001) {
+        data.x += playerVelocity.x * 60 * delta
+        data.z += playerVelocity.z * 60 * delta
+        moving = true
+        
+        // Smooth rotation towards movement direction
+        const targetRotation = Math.atan2(playerVelocity.x, playerVelocity.z)
+        let rotDiff = targetRotation - data.yRot
+        
+        // Normalize rotation difference to -PI to PI
+        while (rotDiff > Math.PI) rotDiff -= Math.PI * 2
+        while (rotDiff < -Math.PI) rotDiff += Math.PI * 2
+        
+        data.yRot += rotDiff * movementConfig.turnSpeed
+      }
 
       // Click-to-move
       if (targetPosition.value && !moving) {
@@ -510,13 +613,22 @@ const updateAlpacas = (delta) => {
         const dist = Math.sqrt(dx * dx + dz * dz)
         
         if (dist > 0.5) {
-          data.x += (dx / dist) * speed
-          data.z += (dz / dist) * speed
+          // Use same smooth velocity system for click-to-move
+          const targetVelX = (dx / dist) * movementConfig.baseSpeed
+          const targetVelZ = (dz / dist) * movementConfig.baseSpeed
+          
+          playerVelocity.x += (targetVelX - playerVelocity.x) * movementConfig.acceleration * 60 * delta
+          playerVelocity.z += (targetVelZ - playerVelocity.z) * movementConfig.acceleration * 60 * delta
+          
+          data.x += playerVelocity.x * 60 * delta
+          data.z += playerVelocity.z * 60 * delta
           data.yRot = Math.atan2(dx, dz)
           moving = true
         } else {
           targetPosition.value = null
           targetMarker.visible = false
+          playerVelocity.x = 0
+          playerVelocity.z = 0
         }
       }
     } else {
@@ -1050,11 +1162,26 @@ const onResize = () => {
 }
 
 const onKeyDown = (e) => {
-  if (keyState.hasOwnProperty(e.code)) keyState[e.code] = true
+  if (keyState.hasOwnProperty(e.code)) {
+    keyState[e.code] = true
+    
+    // Prevent default for arrow keys to stop page scrolling
+    if (e.code.startsWith('Arrow')) {
+      e.preventDefault()
+    }
+    
+    // Cancel click-to-move when using keyboard
+    if (isPlaying.value && targetPosition.value) {
+      targetPosition.value = null
+      if (targetMarker) targetMarker.visible = false
+    }
+  }
 }
 
 const onKeyUp = (e) => {
-  if (keyState.hasOwnProperty(e.code)) keyState[e.code] = false
+  if (keyState.hasOwnProperty(e.code)) {
+    keyState[e.code] = false
+  }
 }
 
 const onClick = (e) => {
@@ -1101,6 +1228,73 @@ const retryInit = () => {
   init3D()
 }
 
+// ==============================
+// 10. TOUCH/MOBILE CONTROLS
+// ==============================
+const onJoystickStart = (e) => {
+  e.preventDefault()
+  const touch = e.touches[0]
+  joystickTouchId = touch.identifier
+  
+  const rect = e.currentTarget.getBoundingClientRect()
+  joystickCenter = {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2
+  }
+  
+  updateJoystick(touch.clientX, touch.clientY)
+}
+
+const onJoystickMove = (e) => {
+  e.preventDefault()
+  for (const touch of e.touches) {
+    if (touch.identifier === joystickTouchId) {
+      updateJoystick(touch.clientX, touch.clientY)
+      break
+    }
+  }
+}
+
+const onJoystickEnd = (e) => {
+  e.preventDefault()
+  let touchFound = false
+  for (const touch of e.touches) {
+    if (touch.identifier === joystickTouchId) {
+      touchFound = true
+      break
+    }
+  }
+  
+  if (!touchFound) {
+    joystickTouchId = null
+    joystickPos.x = 0
+    joystickPos.y = 0
+    joystickInput.x = 0
+    joystickInput.z = 0
+  }
+}
+
+const updateJoystick = (touchX, touchY) => {
+  const maxRadius = 40
+  
+  let dx = touchX - joystickCenter.x
+  let dy = touchY - joystickCenter.y
+  
+  const distance = Math.sqrt(dx * dx + dy * dy)
+  
+  // Clamp to max radius
+  if (distance > maxRadius) {
+    dx = (dx / distance) * maxRadius
+    dy = (dy / distance) * maxRadius
+  }
+  
+  joystickPos.x = dx
+  joystickPos.y = dy
+  
+  // Convert to normalized input (-1 to 1)
+  joystickInput.x = dx / maxRadius
+  joystickInput.z = dy / maxRadius  // Z is forward/backward
+}
 // ==============================
 // 10. GUI SETUP
 // ==============================
@@ -1659,6 +1853,62 @@ textarea.form-input {
     right: 1rem;
     transform: none;
     flex-direction: row;
+  }
+}
+
+/* Mobile Touch Controls */
+.mobile-controls {
+  position: fixed;
+  bottom: 2rem;
+  left: 2rem;
+  z-index: 100;
+  touch-action: none;
+}
+
+.joystick-zone {
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.joystick-base {
+  width: 100px;
+  height: 100px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 3px solid rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.joystick-knob {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.05s ease-out;
+}
+
+.mobile-note {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 0.5rem;
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobile-note {
+    display: block;
+  }
+  
+  .controls-help ul li:first-child,
+  .controls-help ul li:nth-child(4) {
+    display: none;
   }
 }
 </style>

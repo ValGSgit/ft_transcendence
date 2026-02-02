@@ -39,6 +39,28 @@ export const getUserById = async (req, res) => {
   }
 };
 
+export const getUserByUsername = async (req, res) => {
+  try {
+    const { username } = req.params;
+    const user = User.findByUsername(username);
+
+    if (!user) {
+      return errorResponse(res, 'User not found', 404);
+    }
+
+    const stats = User.getStats(user.id);
+
+    return successResponse(res, {
+      user: sanitizeUser(user),
+      stats,
+      isOwnProfile: req.user.id === user.id
+    });
+  } catch (error) {
+    console.error('Get user by username error:', error);
+    return errorResponse(res, 'Failed to get user', 500);
+  }
+};
+
 export const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -143,6 +165,7 @@ export const getCurrentUser = async (req, res) => {
 export default {
   getAllUsers,
   getUserById,
+  getUserByUsername,
   updateProfile,
   searchUsers,
   getUserStats,

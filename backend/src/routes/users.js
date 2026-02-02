@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getAllUsers,
   getUserById,
+  getUserByUsername,
   updateProfile,
   searchUsers,
   getUserStats,
@@ -17,6 +18,7 @@ router.use(authenticate);
 router.get('/', getAllUsers);
 router.get('/search', searchUsers);
 router.get('/me', getCurrentUser);  // Get current user profile
+router.get('/username/:username', getUserByUsername);  // Get user by username
 router.get('/:id', getUserById);
 router.get('/:id/stats', getUserStats);
 router.put('/profile', updateProfile);
