@@ -96,7 +96,7 @@ describe('User Model', () => {
     });
 
     it('should return null for non-existent id', () => {
-      const user = User.findById(999);
+      const user = User.findById(999999999);
       expect(user).toBeUndefined();
     });
   });
