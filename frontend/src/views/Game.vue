@@ -1101,8 +1101,93 @@ const loadVisitFile = (event) => {
 }
 
 const loadFriendFarm = async (username) => {
-  // TODO: Implement API call to load friend's farm
-  console.log('Loading farm for:', username)
+  try {
+    loadingStatus.value = `Loading ${username}'s farm...`
+    
+    // Call API to get user's farm data
+    const response = await api.get(`/users/username/${username}`)
+    const user = response.data.data || response.data.user
+    
+    if (!user) {
+      errorMessage.value = `User ${username} not found`
+      return
+    }
+    
+    // Try to get farm data from user stats or a dedicated endpoint
+    let farmData = null
+    
+    try {
+      const farmResponse = await api.get(`/game/farm/${user.id}`)
+      farmData = farmResponse.data.farm || farmResponse.data
+    } catch (err) {
+      // Farm data endpoint doesn't exist, use default farm
+      console.log('No farm data found, using default farm')
+      farmData = {
+        name: `${username}'s Farm`,
+        alpacas: [
+          { id: 0, name: `${username}'s Alpaca`, type: 'Player', color: '#f5f5dc', x: 0, y: 0, z: 0 }
+        ],
+        score: 0,
+        size: 40,
+        palette: { ...palette }
+      }
+    }
+    
+    // Save home state if not already saved
+    if (!homeBackup) {
+      homeBackup = {
+        alpacas: JSON.parse(JSON.stringify(alpacaList)),
+        score: score.value,
+        name: farmName.value,
+        palette: { ...palette }
+      }
+    }
+    
+    // Clear current farm
+    alpacaList.splice(0)
+    alpacaMeshes.forEach(m => scene.remove(m))
+    alpacaMeshes.clear()
+    
+    // Load friend's farm
+    farmName.value = farmData.name || `${username}'s Farm`
+    score.value = farmData.score || 0
+    isVisiting.value = true
+    
+    // Set colors
+    if (farmData.palette) {
+      Object.assign(palette, farmData.palette)
+      updateColors()
+    }
+    
+    // Rebuild world with friend's farm size
+    buildFarm(farmData.size || 40)
+    buildDecorations(farmData.size || 40)
+    
+    // Load alpacas
+    if (farmData.alpacas && Array.isArray(farmData.alpacas)) {
+      farmData.alpacas.forEach(data => {
+        const newAlpaca = {
+          id: data.id ?? alpacaList.length,
+          name: data.name || 'Alpaca',
+          type: data.type || 'NPC',
+          color: data.color || '#f5f5dc',
+          position: { x: data.x || 0, y: data.y || 0.5, z: data.z || 0 },
+          velocity: { x: 0, z: 0 },
+          wanderTarget: null,
+          happiness: data.happiness || 50,
+          energy: data.energy || 100
+        }
+        alpacaList.push(newAlpaca)
+        spawnAlpacaMesh(newAlpaca)
+      })
+    }
+    
+    loadingStatus.value = ''
+    console.log(`Loaded ${username}'s farm successfully`)
+  } catch (error) {
+    console.error('Failed to load friend farm:', error)
+    errorMessage.value = `Failed to load ${username}'s farm`
+  }
 }
 
 const returnHome = () => {

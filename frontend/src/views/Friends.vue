@@ -259,23 +259,25 @@ const processingId = ref(null)
 const suggestions = ref([])
 const sentRequests = ref([])
 
-const friends = computed(() => socialStore.friends)
-const friendRequests = computed(() => socialStore.friendRequests)
-const onlineFriends = computed(() => friends.value.filter(f => f.isOnline))
+const friends = computed(() => socialStore.friends || [])
+const friendRequests = computed(() => socialStore.friendRequests || [])
+const onlineFriends = computed(() => (friends.value || []).filter(f => f.isOnline))
 
 const filteredFriends = computed(() => {
-  if (!searchQuery.value) return friends.value
+  const list = friends.value || []
+  if (!searchQuery.value) return list
   const query = searchQuery.value.toLowerCase()
-  return friends.value.filter(f => 
-    f.username.toLowerCase().includes(query)
+  return list.filter(f => 
+    f.username?.toLowerCase().includes(query)
   )
 })
 
 const filteredRequests = computed(() => {
-  if (!searchQuery.value) return friendRequests.value
+  const list = friendRequests.value || []
+  if (!searchQuery.value) return list
   const query = searchQuery.value.toLowerCase()
-  return friendRequests.value.filter(r => 
-    r.username.toLowerCase().includes(query)
+  return list.filter(r => 
+    r.username?.toLowerCase().includes(query)
   )
 })
 
@@ -298,13 +300,23 @@ async function loadData() {
     await socialStore.fetchFriends()
     await socialStore.fetchFriendRequests()
     
-    // Load suggestions
-    const suggestionsRes = await api.get('/friends/suggestions')
-    suggestions.value = suggestionsRes.data
+    // Load suggestions (endpoint may not exist yet - graceful fallback)
+    try {
+      const suggestionsRes = await api.get('/friends/suggestions')
+      suggestions.value = suggestionsRes.data?.suggestions || suggestionsRes.data || []
+    } catch (e) {
+      // Endpoint not implemented - use empty array
+      suggestions.value = []
+    }
     
-    // Load sent requests
-    const sentRes = await api.get('/friends/sent')
-    sentRequests.value = sentRes.data
+    // Load sent requests (endpoint may not exist yet - graceful fallback)
+    try {
+      const sentRes = await api.get('/friends/requests/sent')
+      sentRequests.value = sentRes.data?.requests || sentRes.data || []
+    } catch (e) {
+      // Endpoint not implemented - use empty array
+      sentRequests.value = []
+    }
   } catch (error) {
     console.error('Failed to load friends data:', error)
   }
@@ -421,6 +433,7 @@ function formatTime(dateString) {
 .page-header h1 {
   margin: 0;
   font-size: 1.75rem;
+  color: var(--text-primary);
 }
 
 /* Tabs */
@@ -433,36 +446,36 @@ function formatTime(dateString) {
 
 .tab {
   padding: 0.875rem 1.5rem;
-  background: white;
+  background: var(--bg-card);
   border: 2px solid transparent;
   border-radius: 24px;
   cursor: pointer;
   font-weight: 600;
-  color: #65676b;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: 0.5rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow);
 }
 
 .tab:hover {
-  background: #f8f9fa;
-  border-color: rgba(102, 126, 234, 0.2);
+  background: var(--bg-hover);
+  border-color: var(--border-color);
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
 }
 
 .tab.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--primary);
   color: white;
   border-color: transparent;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  box-shadow: var(--shadow-lg);
   transform: translateY(-2px);
 }
 
 .badge {
-  background: #e4e6e9;
+  background: var(--bg-tertiary);
   padding: 0.125rem 0.5rem;
   border-radius: 10px;
   font-size: 0.8rem;
@@ -490,21 +503,22 @@ function formatTime(dateString) {
 .search-input-wrapper {
   display: flex;
   align-items: center;
-  background: white;
+  background: var(--bg-card);
   border-radius: 24px;
   padding: 0.75rem 1.25rem;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow);
   border: 2px solid transparent;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .search-input-wrapper:focus-within {
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1), var(--shadow);
 }
 
 .search-icon {
   margin-right: 0.5rem;
+  color: var(--text-secondary);
 }
 
 .search-input {
@@ -513,18 +527,23 @@ function formatTime(dateString) {
   background: none;
   font-size: 1rem;
   padding: 0.25rem;
+  color: var(--text-primary);
 }
 
 .search-input:focus {
   outline: none;
 }
 
+.search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
 /* Cards */
 .card {
-  background: white;
+  background: var(--bg-card);
   border-radius: 12px;
   padding: 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow);
 }
 
 /* Friends Grid */
@@ -558,7 +577,7 @@ function formatTime(dateString) {
   width: 14px;
   height: 14px;
   background: #22c55e;
-  border: 2px solid white;
+  border: 2px solid var(--bg-card);
   border-radius: 50%;
 }
 
@@ -568,7 +587,7 @@ function formatTime(dateString) {
 
 .friend-name {
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
   text-decoration: none;
   display: block;
 }
@@ -579,7 +598,7 @@ function formatTime(dateString) {
 
 .mutual-friends,
 .status-text {
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 
@@ -593,14 +612,15 @@ function formatTime(dateString) {
   height: 36px;
   border-radius: 50%;
   border: none;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   cursor: pointer;
   font-size: 1rem;
   transition: background 0.2s;
+  color: var(--text-secondary);
 }
 
 .action-btn:hover {
-  background: #e4e6e9;
+  background: var(--bg-hover);
 }
 
 /* Dropdown */
@@ -612,9 +632,9 @@ function formatTime(dateString) {
   position: absolute;
   right: 0;
   top: 100%;
-  background: white;
+  background: var(--bg-card);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
   z-index: 10;
   overflow: hidden;
   min-width: 150px;
@@ -628,10 +648,11 @@ function formatTime(dateString) {
   background: none;
   text-align: left;
   cursor: pointer;
+  color: var(--text-primary);
 }
 
 .dropdown-menu button:hover {
-  background: #f0f2f5;
+  background: var(--bg-hover);
 }
 
 /* Requests */
@@ -642,6 +663,7 @@ function formatTime(dateString) {
 .requests-group h3 {
   margin: 0 0 1rem;
   font-size: 1.1rem;
+  color: var(--text-primary);
 }
 
 .requests-list {
@@ -669,13 +691,13 @@ function formatTime(dateString) {
 
 .request-name {
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
   text-decoration: none;
   display: block;
 }
 
 .request-time {
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 0.8rem;
   display: block;
 }
@@ -688,6 +710,7 @@ function formatTime(dateString) {
 /* Suggestions */
 .suggestions-section h3 {
   margin: 0 0 1rem;
+  color: var(--text-primary);
 }
 
 .suggestions-grid {
@@ -714,13 +737,13 @@ function formatTime(dateString) {
 
 .suggestion-name {
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
   text-decoration: none;
   margin-bottom: 0.25rem;
 }
 
 .suggestion-reason {
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 0.85rem;
   margin-bottom: 1rem;
 }
@@ -736,7 +759,7 @@ function formatTime(dateString) {
 .empty-state {
   text-align: center;
   padding: 3rem;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 .empty-icon {
@@ -746,7 +769,7 @@ function formatTime(dateString) {
 
 .empty-state h3 {
   margin: 0 0 0.5rem;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .empty-state p {
@@ -756,8 +779,8 @@ function formatTime(dateString) {
 .empty-state-small {
   text-align: center;
   padding: 1.5rem;
-  color: #65676b;
-  background: #f8f9fa;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
   border-radius: 12px;
 }
 
@@ -772,26 +795,27 @@ function formatTime(dateString) {
 }
 
 .btn-primary {
-  background: #667eea;
+  background: var(--primary);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #5a6fd6;
+  background: var(--primary-hover);
 }
 
 .btn-primary:disabled {
-  background: #a5b4fc;
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
   cursor: not-allowed;
 }
 
 .btn-secondary {
-  background: #e4e6e9;
-  color: #333;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #d8dadc;
+  background: var(--bg-hover);
 }
 
 .btn-full {

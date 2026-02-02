@@ -2,6 +2,8 @@ import express from 'express';
 import {
   sendFriendRequest,
   getPendingRequests,
+  getSentRequests,
+  getSuggestions,
   acceptFriendRequest,
   declineFriendRequest,
   getFriends,
@@ -18,9 +20,13 @@ const router = express.Router();
 // All friend routes require authentication
 router.use(authenticate);
 
+// Suggestions
+router.get('/suggestions', getSuggestions);
+
 // Friend requests
 router.post('/requests', sendFriendRequest);
 router.get('/requests/pending', getPendingRequests);
+router.get('/requests/sent', getSentRequests);
 router.post('/requests/:requestId/accept', acceptFriendRequest);
 router.post('/requests/:requestId/decline', declineFriendRequest);
 

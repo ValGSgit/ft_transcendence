@@ -37,6 +37,7 @@
           @comment="handleComment"
           @share="handleShare"
           @delete="handleDelete"
+          @edit="handleEdit"
         />
       </TransitionGroup>
 
@@ -116,6 +117,47 @@
           </div>
         </div>
       </div>
+
+      <!-- Edit Post Modal -->
+      <div v-if="showEditModal" class="modal-overlay" @click.self="closeEditModal">
+        <div class="modal edit-post-modal">
+          <div class="modal-header">
+            <h2>Edit Post</h2>
+            <button class="close-btn" @click="closeEditModal">×</button>
+          </div>
+          
+          <div class="modal-body">
+            <div class="post-author">
+              <img :src="currentUser?.avatar || defaultAvatar" :alt="currentUser?.username" class="avatar" />
+              <div>
+                <span class="author-name">{{ currentUser?.username }}</span>
+                <select v-model="editPost.visibility" class="visibility-select">
+                  <option value="public">🌍 Public</option>
+                  <option value="friends">👥 Friends</option>
+                  <option value="private">🔒 Only me</option>
+                </select>
+              </div>
+            </div>
+
+            <textarea
+              v-model="editPost.content"
+              placeholder="What's on your mind?"
+              class="post-textarea"
+              rows="4"
+            ></textarea>
+          </div>
+
+          <div class="modal-footer">
+            <button 
+              class="btn btn-primary btn-block" 
+              @click="submitEdit"
+              :disabled="!editPost.content.trim() || submitting"
+            >
+              {{ submitting ? 'Saving...' : 'Save Changes' }}
+            </button>
+          </div>
+        </div>
+      </div>
     </Teleport>
   </div>
 </template>
@@ -137,6 +179,8 @@ const hasMore = computed(() => socialStore.hasMore)
 const defaultAvatar = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23667eea"/><text x="50" y="65" text-anchor="middle" fill="white" font-size="40">🦙</text></svg>'
 
 const showCreateModal = ref(false)
+const showEditModal = ref(false)
+const editingPost = ref(null)
 const postType = ref('text')
 const submitting = ref(false)
 const postTextarea = ref(null)
@@ -148,6 +192,11 @@ const newPost = ref({
   image: null,
   type: 'text',
   farmData: null
+})
+
+const editPost = ref({
+  content: '',
+  visibility: 'public'
 })
 
 onMounted(async () => {
@@ -239,8 +288,67 @@ function handleComment(postId, content) {
 }
 
 function handleShare(post) {
-  // TODO: Implement share functionality
-  console.log('Share post:', post)
+  // Share functionality - copy link to clipboard
+  const postUrl = `${window.location.origin}/post/${post.id}`
+  
+  if (navigator.share) {
+    // Native share on mobile
+    navigator.share({
+      title: `Post by ${post.user?.username || 'User'}`,
+      text: post.content?.substring(0, 100) || 'Check out this post!',
+      url: postUrl
+    }).catch(err => {
+      if (err.name !== 'AbortError') {
+        console.error('Share failed:', err)
+      }
+    })
+  } else {
+    // Fallback - copy to clipboard
+    navigator.clipboard.writeText(postUrl).then(() => {
+      alert('Link copied to clipboard!')
+    }).catch(() => {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = postUrl
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+      alert('Link copied to clipboard!')
+    })
+  }
+}
+
+function handleEdit(post) {
+  editingPost.value = post
+  editPost.value = {
+    content: post.content || '',
+    visibility: post.visibility || 'public'
+  }
+  showEditModal.value = true
+}
+
+async function submitEdit() {
+  if (!editPost.value.content.trim() || !editingPost.value) return
+  
+  submitting.value = true
+  try {
+    await socialStore.updatePost(editingPost.value.id, {
+      content: editPost.value.content,
+      visibility: editPost.value.visibility
+    })
+    closeEditModal()
+  } catch (err) {
+    console.error('Failed to update post:', err)
+  } finally {
+    submitting.value = false
+  }
+}
+
+function closeEditModal() {
+  showEditModal.value = false
+  editingPost.value = null
+  editPost.value = { content: '', visibility: 'public' }
 }
 
 function handleDelete(postId) {
@@ -255,19 +363,20 @@ function handleDelete(postId) {
   max-width: 680px;
   margin: 0 auto;
   padding: 1rem;
+  min-height: calc(100vh - 60px);
 }
 
 .card {
-  background: white;
+  background: var(--bg-card);
   border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow);
   margin-bottom: 1.5rem;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .card:hover {
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-lg);
   transform: translateY(-2px);
 }
 
@@ -292,32 +401,32 @@ function handleDelete(postId) {
 .create-post-input {
   flex: 1;
   padding: 0.75rem 1rem;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   border: 2px solid transparent;
   border-radius: 24px;
   text-align: left;
-  color: #65676b;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 1rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .create-post-input:hover {
-  background: #e4e6e9;
-  border-color: rgba(102, 126, 234, 0.2);
+  background: var(--bg-hover);
+  border-color: rgba(0, 240, 255, 0.2);
 }
 
 .create-post-input:focus {
-  background: white;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  background: var(--bg-card);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.1);
 }
 
 .create-post-actions {
   display: flex;
   gap: 0.5rem;
   padding-top: 0.75rem;
-  border-top: 1px solid #e4e6e9;
+  border-top: 1px solid var(--border-color);
 }
 
 .action-btn {
@@ -329,7 +438,7 @@ function handleDelete(postId) {
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 500;
-  color: #65676b;
+  color: var(--text-secondary);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
@@ -338,8 +447,8 @@ function handleDelete(postId) {
 }
 
 .action-btn:hover {
-  background: #f0f2f5;
-  color: #667eea;
+  background: var(--bg-hover);
+  color: var(--primary);
   transform: translateY(-1px);
 }
 
@@ -356,15 +465,16 @@ function handleDelete(postId) {
 .empty-state {
   text-align: center;
   padding: 3rem 1rem;
-  background: white;
+  background: var(--bg-card);
   border-radius: 12px;
+  color: var(--text-primary);
 }
 
 .spinner-large {
   width: 48px;
   height: 48px;
-  border: 4px solid #e4e6e9;
-  border-top-color: #667eea;
+  border: 4px solid var(--border-color);
+  border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem;
@@ -382,11 +492,11 @@ function handleDelete(postId) {
 
 .empty-state h3 {
   margin-bottom: 0.5rem;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .empty-state p {
-  color: #65676b;
+  color: var(--text-secondary);
   margin-bottom: 1.5rem;
 }
 
@@ -415,22 +525,24 @@ function handleDelete(postId) {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
+  backdrop-filter: blur(4px);
 }
 
 .modal {
-  background: white;
+  background: var(--bg-card);
   border-radius: 12px;
   width: 100%;
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-xl);
+  border: 1px solid var(--border-color);
 }
 
 .modal-header {
@@ -438,29 +550,31 @@ function handleDelete(postId) {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  border-bottom: 1px solid #e4e6e9;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .modal-header h2 {
   font-size: 1.25rem;
   margin: 0;
+  color: var(--text-primary);
 }
 
 .close-btn {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #e4e6e9;
+  background: var(--bg-tertiary);
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--text-primary);
 }
 
 .close-btn:hover {
-  background: #d8dadf;
+  background: var(--bg-hover);
 }
 
 .modal-body {
@@ -477,14 +591,16 @@ function handleDelete(postId) {
 .author-name {
   font-weight: 600;
   display: block;
+  color: var(--text-primary);
 }
 
 .visibility-select {
   font-size: 0.8rem;
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
-  border: 1px solid #ddd;
-  background: #f0f2f5;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   cursor: pointer;
 }
 
@@ -495,6 +611,8 @@ function handleDelete(postId) {
   resize: none;
   padding: 0;
   min-height: 100px;
+  background: transparent;
+  color: var(--text-primary);
 }
 
 .post-textarea:focus {
@@ -502,7 +620,7 @@ function handleDelete(postId) {
 }
 
 .post-textarea::placeholder {
-  color: #65676b;
+  color: var(--text-tertiary);
 }
 
 .image-preview {
@@ -536,7 +654,7 @@ function handleDelete(postId) {
   display: flex;
   gap: 0.5rem;
   padding: 0.75rem;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   border-radius: 8px;
   margin-top: 1rem;
 }
@@ -544,21 +662,22 @@ function handleDelete(postId) {
 .attachment-btn {
   flex: 1;
   padding: 0.5rem;
-  background: white;
-  border: 1px solid #ddd;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.85rem;
   transition: background 0.2s;
+  color: var(--text-primary);
 }
 
 .attachment-btn:hover {
-  background: #f8f9fa;
+  background: var(--bg-hover);
 }
 
 .modal-footer {
   padding: 1rem;
-  border-top: 1px solid #e4e6e9;
+  border-top: 1px solid var(--border-color);
 }
 
 /* Buttons */
@@ -576,12 +695,12 @@ function handleDelete(postId) {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  color: var(--bg-primary);
 }
 
 .btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
+  filter: brightness(1.1);
 }
 
 .btn-primary:disabled {
@@ -590,12 +709,13 @@ function handleDelete(postId) {
 }
 
 .btn-secondary {
-  background: #e4e6e9;
-  color: #333;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .btn-secondary:hover {
-  background: #d8dadf;
+  background: var(--bg-hover);
 }
 
 @media (max-width: 768px) {

@@ -48,6 +48,27 @@ export const getPendingRequests = async (req, res) => {
   }
 };
 
+export const getSentRequests = async (req, res) => {
+  try {
+    const requests = Friend.getSentRequests(req.user.id);
+    return successResponse(res, { requests, count: requests.length });
+  } catch (error) {
+    console.error('Get sent requests error:', error);
+    return errorResponse(res, 'Failed to get sent requests', 500);
+  }
+};
+
+export const getSuggestions = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const suggestions = Friend.getSuggestions(req.user.id, limit);
+    return successResponse(res, { suggestions, count: suggestions.length });
+  } catch (error) {
+    console.error('Get suggestions error:', error);
+    return errorResponse(res, 'Failed to get suggestions', 500);
+  }
+};
+
 export const acceptFriendRequest = async (req, res) => {
   try {
     const { requestId } = req.params;

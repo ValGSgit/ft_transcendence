@@ -135,7 +135,7 @@
             <div v-if="isOwnProfile" class="create-post-card card">
               <div class="create-post-input">
                 <img :src="authStore.currentUser?.avatar || defaultAvatar" class="avatar" />
-                <button class="post-input-btn" @click="openCreatePost">
+                <button class="post-input-btn" @click="openCreatePost('text')">
                   What's on your mind?
                 </button>
               </div>
@@ -455,7 +455,28 @@ function handleComment(postId, content) {
 }
 
 function handleShare(post) {
-  // TODO: Implement share modal
+  // Share functionality - copy link to clipboard
+  const postUrl = `${window.location.origin}/post/${post.id}`
+  
+  if (navigator.share) {
+    // Native share on mobile
+    navigator.share({
+      title: `Post by ${post.user?.username || profile.value?.username}`,
+      text: post.content?.substring(0, 100) || 'Check out this post!',
+      url: postUrl
+    }).catch(err => {
+      if (err.name !== 'AbortError') {
+        console.error('Share failed:', err)
+      }
+    })
+  } else {
+    // Fallback - copy to clipboard
+    navigator.clipboard.writeText(postUrl).then(() => {
+      alert('Link copied to clipboard!')
+    }).catch(() => {
+      alert('Failed to copy link')
+    })
+  }
 }
 
 function handleDelete(postId) {
@@ -464,15 +485,76 @@ function handleDelete(postId) {
 }
 
 function openCreatePost(type) {
-  router.push({ path: '/feed', query: { createPost: true, type } })
+  // Guard against event objects being passed
+  const postType = typeof type === 'string' ? type : 'text'
+  router.push({ path: '/feed', query: { createPost: true, type: postType } })
 }
 
 function editCoverPhoto() {
-  // TODO: Implement cover photo editor
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.onchange = async (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = async (event) => {
+        try {
+          // Update cover photo via API
+          await api.put('/users/profile', {
+            coverPhoto: event.target.result
+          })
+          
+          // Update local profile
+          if (profile.value) {
+            profile.value.coverPhoto = event.target.result
+          }
+          
+          alert('Cover photo updated!')
+        } catch (error) {
+          console.error('Failed to update cover photo:', error)
+          alert('Failed to update cover photo')
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+  input.click()
 }
 
 function editAvatar() {
-  // TODO: Implement avatar editor
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.onchange = async (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = async (event) => {
+        try {
+          // Update avatar via API
+          await api.put('/users/profile', {
+            avatar: event.target.result
+          })
+          
+          // Update local profile and auth store
+          if (profile.value) {
+            profile.value.avatar = event.target.result
+          }
+          if (authStore.currentUser) {
+            authStore.currentUser.avatar = event.target.result
+          }
+          
+          alert('Avatar updated!')
+        } catch (error) {
+          console.error('Failed to update avatar:', error)
+          alert('Failed to update avatar')
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+  input.click()
 }
 
 function formatJoinDate(dateString) {
@@ -536,9 +618,9 @@ function formatDate(dateString) {
   width: 168px;
   height: 168px;
   border-radius: 50%;
-  border: 5px solid white;
+  border: 5px solid var(--bg-card);
   object-fit: cover;
-  background: white;
+  background: var(--bg-card);
 }
 
 .edit-avatar-btn {
@@ -548,7 +630,7 @@ function formatDate(dateString) {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #e4e6e9;
+  background: var(--bg-tertiary);
   border: none;
   cursor: pointer;
 }
@@ -562,16 +644,18 @@ function formatDate(dateString) {
   font-size: 2rem;
   font-weight: bold;
   margin: 0;
+  color: var(--text-primary);
 }
 
 .friend-count {
-  color: #65676b;
+  color: var(--text-secondary);
   margin: 0.25rem 0;
 }
 
 .bio {
   margin: 0.5rem 0 0;
   max-width: 500px;
+  color: var(--text-primary);
 }
 
 .profile-actions {
@@ -585,7 +669,7 @@ function formatDate(dateString) {
   display: flex;
   gap: 0.5rem;
   padding: 1rem 2rem;
-  border-bottom: 1px solid #e4e6e9;
+  border-bottom: 1px solid var(--border-color);
   margin-top: 1rem;
 }
 
@@ -595,18 +679,18 @@ function formatDate(dateString) {
   border: none;
   cursor: pointer;
   font-weight: 600;
-  color: #65676b;
+  color: var(--text-secondary);
   border-radius: 8px;
   transition: background 0.2s;
 }
 
 .tab:hover {
-  background: #f0f2f5;
+  background: var(--bg-hover);
 }
 
 .tab.active {
-  color: #667eea;
-  border-bottom: 3px solid #667eea;
+  color: var(--primary);
+  border-bottom: 3px solid var(--primary);
   margin-bottom: -1px;
 }
 
@@ -616,10 +700,10 @@ function formatDate(dateString) {
 }
 
 .card {
-  background: white;
+  background: var(--bg-card);
   border-radius: 12px;
   padding: 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow);
 }
 
 /* Posts Tab */
@@ -638,10 +722,12 @@ function formatDate(dateString) {
 .intro-card h3 {
   font-size: 1.25rem;
   margin: 0 0 1rem;
+  color: var(--text-primary);
 }
 
 .intro-bio {
   margin-bottom: 1rem;
+  color: var(--text-primary);
 }
 
 .intro-list {
@@ -652,7 +738,8 @@ function formatDate(dateString) {
 
 .intro-list li {
   padding: 0.5rem 0;
-  border-top: 1px solid #e4e6e9;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-primary);
 }
 
 .btn-full {
@@ -669,7 +756,7 @@ function formatDate(dateString) {
   display: flex;
   gap: 0.75rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid #e4e6e9;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .avatar {
@@ -681,16 +768,16 @@ function formatDate(dateString) {
 .post-input-btn {
   flex: 1;
   padding: 0.75rem 1rem;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   border: none;
   border-radius: 20px;
   text-align: left;
-  color: #65676b;
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
 .post-input-btn:hover {
-  background: #e4e6e9;
+  background: var(--bg-hover);
 }
 
 .post-type-btns {
@@ -704,13 +791,13 @@ function formatDate(dateString) {
   background: none;
   border: none;
   cursor: pointer;
-  color: #65676b;
+  color: var(--text-secondary);
   font-weight: 600;
   border-radius: 8px;
 }
 
 .post-type-btns button:hover {
-  background: #f0f2f5;
+  background: var(--bg-hover);
 }
 
 /* About Tab */
@@ -720,7 +807,7 @@ function formatDate(dateString) {
 
 .about-section h4 {
   margin: 0 0 1rem;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .about-list {
@@ -734,6 +821,7 @@ function formatDate(dateString) {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 0;
+  color: var(--text-primary);
 }
 
 .about-icon {
@@ -751,7 +839,7 @@ function formatDate(dateString) {
   flex-direction: column;
   align-items: center;
   padding: 1.5rem;
-  background: #f8f9fa;
+  background: var(--bg-tertiary);
   border-radius: 12px;
 }
 
@@ -763,10 +851,11 @@ function formatDate(dateString) {
 .stat-card .stat-value {
   font-size: 1.5rem;
   font-weight: bold;
+  color: var(--text-primary);
 }
 
 .stat-card .stat-label {
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 
@@ -780,19 +869,25 @@ function formatDate(dateString) {
 
 .friends-header h3 {
   margin: 0;
+  color: var(--text-primary);
 }
 
 .friend-total {
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 .search-input {
   width: 100%;
   padding: 0.75rem 1rem;
   border: none;
-  background: #f0f2f5;
+  background: var(--bg-tertiary);
   border-radius: 20px;
   margin-bottom: 1rem;
+  color: var(--text-primary);
+}
+
+.search-input::placeholder {
+  color: var(--text-tertiary);
 }
 
 .friends-grid {
@@ -806,7 +901,7 @@ function formatDate(dateString) {
   align-items: center;
   gap: 0.75rem;
   padding: 1rem;
-  background: #f8f9fa;
+  background: var(--bg-tertiary);
   border-radius: 12px;
   text-decoration: none;
   color: inherit;
@@ -814,7 +909,7 @@ function formatDate(dateString) {
 }
 
 .friend-card:hover {
-  background: #e4e6e9;
+  background: var(--bg-hover);
 }
 
 .friend-avatar {
@@ -825,6 +920,7 @@ function formatDate(dateString) {
 
 .friend-name {
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 /* Farm Tab */
@@ -895,14 +991,14 @@ function formatDate(dateString) {
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  background: #f8f9fa;
+  background: var(--bg-tertiary);
   border-radius: 12px;
   opacity: 0.5;
 }
 
 .achievement-card.unlocked {
   opacity: 1;
-  background: linear-gradient(135deg, #f8f9fa 0%, #fff9e6 100%);
+  background: var(--bg-tertiary);
 }
 
 .achievement-icon {
@@ -916,15 +1012,16 @@ function formatDate(dateString) {
 .achievement-name {
   font-weight: 600;
   display: block;
+  color: var(--text-primary);
 }
 
 .achievement-desc {
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
 .achievement-date {
-  color: #65676b;
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 
@@ -932,7 +1029,7 @@ function formatDate(dateString) {
 .empty-state {
   text-align: center;
   padding: 2rem;
-  color: #65676b;
+  color: var(--text-secondary);
 }
 
 .btn {
@@ -948,21 +1045,21 @@ function formatDate(dateString) {
 }
 
 .btn-primary {
-  background: #667eea;
+  background: var(--primary);
   color: white;
 }
 
 .btn-primary:hover {
-  background: #5a6fd6;
+  background: var(--primary-hover);
 }
 
 .btn-secondary {
-  background: #e4e6e9;
-  color: #333;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .btn-secondary:hover {
-  background: #d8dadc;
+  background: var(--bg-hover);
 }
 
 /* Animations */
