@@ -61,26 +61,32 @@ export class Post {
       if (post.farm_data) {
         post.farm_data = JSON.parse(post.farm_data);
       }
+      // Ensure user_liked is a boolean
+      post.user_liked = !!post.user_liked;
       return post;
     });
   }
 
-  static getUserPosts(userId, limit = 20, offset = 0) {
+  static getUserPosts(profileUserId, currentUserId = null, limit = 20, offset = 0) {
+    const viewerId = currentUserId || profileUserId;
     const stmt = db.prepare(`
       SELECT p.*, u.username, u.avatar,
              (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
-             (SELECT COUNT(*) FROM post_comments WHERE post_id = p.id) as comments_count
+             (SELECT COUNT(*) FROM post_comments WHERE post_id = p.id) as comments_count,
+             (SELECT COUNT(*) > 0 FROM post_likes WHERE post_id = p.id AND user_id = ?) as user_liked
       FROM posts p
       JOIN users u ON p.user_id = u.id
       WHERE p.user_id = ?
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
     `);
-    const posts = stmt.all(userId, limit, offset);
+    const posts = stmt.all(viewerId, profileUserId, limit, offset);
     return posts.map(post => {
       if (post.farm_data) {
         post.farm_data = JSON.parse(post.farm_data);
       }
+      // Ensure user_liked is a boolean
+      post.user_liked = !!post.user_liked;
       return post;
     });
   }

@@ -155,6 +155,7 @@
                 @comment="handleComment"
                 @share="handleShare"
                 @delete="handleDelete"
+                @loadComments="handleLoadComments"
               />
             </TransitionGroup>
 
@@ -348,7 +349,11 @@ const isFriend = computed(() =>
 )
 
 const hasPendingRequest = computed(() => 
-  socialStore.sentRequests?.some(r => r.username === profile.value?.username)
+  socialStore.sentRequests?.some(r => 
+    r.receiver_id === profile.value?.id || 
+    r.receiver_username === profile.value?.username ||
+    r.username === profile.value?.username
+  )
 )
 
 const filteredFriends = computed(() => {
@@ -379,19 +384,21 @@ async function loadProfile() {
     
     // Load profile data by username
     const profileRes = await api.get(`/users/username/${username}`)
+    const responseData = profileRes.data.data || profileRes.data
     profile.value = {
-      ...profileRes.data.user,
-      ...profileRes.data.stats,
-      friendCount: profileRes.data.stats?.friendCount || 0,
-      farmLevel: profileRes.data.stats?.farmLevel || 1,
-      totalAlpacas: profileRes.data.stats?.totalAlpacas || 0,
-      totalCoins: profileRes.data.stats?.totalCoins || 0
+      ...responseData.user,
+      ...responseData.stats,
+      friendCount: responseData.stats?.friendCount || 0,
+      farmLevel: responseData.stats?.farmLevel || 1,
+      totalAlpacas: responseData.stats?.totalAlpacas || 0,
+      totalCoins: responseData.stats?.totalCoins || 0
     }
 
     // Load user's posts
     try {
       const postsRes = await api.get(`/posts/username/${username}`)
-      userPosts.value = postsRes.data.posts || postsRes.data || []
+      const postsData = postsRes.data.data || postsRes.data
+      userPosts.value = postsData.posts || postsData || []
     } catch (err) {
       // Posts endpoint might not exist yet
       userPosts.value = []
@@ -400,9 +407,19 @@ async function loadProfile() {
     // Load friends list from Friend model
     try {
       const friendsRes = await api.get(`/friends`)
-      friends.value = friendsRes.data.filter(f => f.status === 'accepted')
+      const friendsData = friendsRes.data.data || friendsRes.data
+      friends.value = friendsData.friends || friendsData || []
     } catch (err) {
       friends.value = []
+    }
+
+    // Load sent requests for checking if request already sent
+    if (!isOwnProfile.value) {
+      try {
+        await socialStore.fetchSentRequests()
+      } catch (err) {
+        // Ignore errors
+      }
     }
 
     // Load achievements
@@ -452,6 +469,21 @@ function handleLike(postId) {
 
 function handleComment(postId, content) {
   socialStore.commentOnPost(postId, content)
+}
+
+async function handleLoadComments(postId) {
+  try {
+    const response = await api.get(`/posts/${postId}/comments`)
+    const responseData = response.data.data || response.data
+    const comments = responseData.comments || responseData || []
+    // Find the post and update its comments
+    const postIndex = userPosts.value.findIndex(p => p.id === postId)
+    if (postIndex !== -1) {
+      userPosts.value[postIndex].comments = comments
+    }
+  } catch (err) {
+    console.error('Failed to load comments:', err)
+  }
 }
 
 function handleShare(post) {

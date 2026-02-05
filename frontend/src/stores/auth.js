@@ -129,8 +129,9 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     error.value = null
     try {
-      const response = await api.put('/users/me', profileData)
-      user.value = { ...user.value, ...response.data.user }
+      const response = await api.put('/users/profile', profileData)
+      const updatedUser = response.data.data?.user || response.data.user
+      user.value = { ...user.value, ...updatedUser }
       return response.data
     } catch (err) {
       error.value = err.response?.data?.message || 'Update failed'
