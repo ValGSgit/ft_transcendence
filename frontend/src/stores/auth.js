@@ -145,8 +145,9 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await api.post('/auth/refresh', {
       refreshToken: refreshToken.value
     })
-    setTokens(response.data.token, response.data.refreshToken)
-    return response.data.token
+    const responseData = response.data.data || response.data
+    setTokens(responseData.token, responseData.refreshToken)
+    return responseData.token
   }
 
   function setTokens(accessToken, refresh) {

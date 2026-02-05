@@ -36,11 +36,13 @@ export const useChatStore = defineStore('chat', () => {
     error.value = null
     try {
       const response = await api.get('/chat/rooms')
-      const rooms = response.data.rooms || response.data || []
+      const responseData = response.data.data || response.data
+      const rooms = responseData.rooms || responseData || []
       conversations.value = Array.isArray(rooms) ? rooms : []
       return conversations.value
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to fetch conversations'
+      conversations.value = []
       throw err
     } finally {
       loading.value = false
@@ -54,34 +56,42 @@ export const useChatStore = defineStore('chat', () => {
       const response = await api.get(`/chat/rooms/${conversationId}/messages`, {
         params: { page, limit: 50 }
       })
+      const responseData = response.data.data || response.data
+      const fetchedMessages = responseData.messages || responseData || []
       if (page === 1) {
-        messages.value = (response.data.messages || response.data).reverse()
+        messages.value = Array.isArray(fetchedMessages) ? [...fetchedMessages].reverse() : []
       } else {
-        messages.value.unshift(...(response.data.messages || response.data).reverse())
+        messages.value.unshift(...(Array.isArray(fetchedMessages) ? [...fetchedMessages].reverse() : []))
       }
       return response.data
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to fetch messages'
+      messages.value = []
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function sendMessage(conversationId, content, type = 'text') {
+  async function sendMessage(conversationId, messageData, type = 'text') {
     try {
+      // Handle both string content and object with content property
+      const content = typeof messageData === 'string' ? messageData : messageData.content
+      const msgType = typeof messageData === 'object' ? messageData.type || type : type
+      
       const response = await api.post(`/chat/rooms/${conversationId}/messages`, {
         content,
-        type
+        type: msgType
       })
-      const msg = response.data.message || response.data
+      const responseData = response.data.data || response.data
+      const msg = responseData.message || responseData
       messages.value.push(msg)
       
       // Update conversation's last message
       const conv = conversations.value.find(c => c.id === conversationId)
       if (conv) {
         conv.lastMessage = msg
-        conv.lastMessageAt = msg.createdAt
+        conv.lastMessageAt = msg.createdAt || msg.created_at
       }
       
       // Emit via socket for real-time delivery
@@ -102,11 +112,23 @@ export const useChatStore = defineStore('chat', () => {
       // Use direct message endpoint to get or create a DM room
       const targetId = typeof userId === 'object' ? userId.id : userId
       const response = await api.get(`/chat/direct/${targetId}`)
-      const room = response.data.room || response.data
+      const responseData = response.data.data || response.data
+      const room = responseData.room || responseData
+      
+      // Add user info to room for display purposes
+      if (typeof userId === 'object') {
+        room.user = userId
+      }
+      
       const existingIndex = conversations.value.findIndex(c => c.id === room.id)
       if (existingIndex === -1) {
         conversations.value.unshift(room)
       }
+      
+      // Set as active and fetch messages
+      activeConversation.value = room
+      await fetchMessages(room.id)
+      
       return room
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to start conversation'
@@ -117,7 +139,8 @@ export const useChatStore = defineStore('chat', () => {
   async function createGroupConversation(name, userIds) {
     try {
       const response = await api.post('/chat/rooms', { name, members: userIds, type: 'group' })
-      const room = response.data.room || response.data
+      const responseData = response.data.data || response.data
+      const room = responseData.room || responseData
       conversations.value.unshift(room)
       return room
     } catch (err) {

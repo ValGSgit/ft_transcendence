@@ -70,10 +70,11 @@
                   :class="['notification-item', { unread: !notification.read }]"
                   @click="handleNotification(notification)"
                 >
-                  <img :src="notification.actor?.avatar || defaultAvatar" class="notification-avatar" />
+                  <div class="notification-icon">{{ getNotificationIcon(notification.type) }}</div>
                   <div class="notification-content">
-                    <p>{{ notification.message }}</p>
-                    <span class="notification-time">{{ formatTime(notification.createdAt) }}</span>
+                    <strong>{{ notification.title }}</strong>
+                    <p>{{ notification.content }}</p>
+                    <span class="notification-time">{{ formatTime(notification.created_at) }}</span>
                   </div>
                 </div>
                 <div v-if="notifications.length === 0" class="notification-empty">
@@ -252,9 +253,21 @@ function handleNotification(notification) {
     router.push('/friends')
   } else if (notification.type === 'message') {
     router.push('/messages')
-  } else if (notification.postId) {
-    router.push(`/feed#post-${notification.postId}`)
+  } else if (notification.type === 'game_invite') {
+    router.push('/game')
+  } else if (notification.data?.postId) {
+    router.push(`/feed#post-${notification.data.postId}`)
   }
+}
+
+function getNotificationIcon(type) {
+  const icons = {
+    friend_request: '👥',
+    game_invite: '🎮',
+    message: '💬',
+    system: '🔔'
+  }
+  return icons[type] || '🔔'
 }
 
 function logout() {
@@ -660,21 +673,49 @@ button {
   background: rgba(0, 240, 255, 0.1);
 }
 
+.notification-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface-elevated);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
 .notification-avatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
 }
 
-.notification-content p {
-  margin: 0;
-  font-size: 0.9rem;
+.notification-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.notification-content strong {
+  display: block;
+  font-size: 0.85rem;
+  margin-bottom: 2px;
   color: var(--text-primary);
 }
 
+.notification-content p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .notification-time {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-tertiary);
+  margin-top: 4px;
 }
 
 .notification-empty {

@@ -42,12 +42,21 @@ api.interceptors.response.use(
             refreshToken
           })
 
-          const { token } = response.data
-          localStorage.setItem('token', token)
-          api.defaults.headers.common['Authorization'] = `Bearer ${token}`
-          originalRequest.headers.Authorization = `Bearer ${token}`
+          // Handle both direct and wrapped response formats
+          const responseData = response.data.data || response.data
+          const token = responseData.token
+          const newRefreshToken = responseData.refreshToken
 
-          return api(originalRequest)
+          if (token) {
+            localStorage.setItem('token', token)
+            if (newRefreshToken) {
+              localStorage.setItem('refreshToken', newRefreshToken)
+            }
+            api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+            originalRequest.headers.Authorization = `Bearer ${token}`
+
+            return api(originalRequest)
+          }
         } catch (refreshError) {
           // Refresh failed - logout user
           localStorage.removeItem('token')

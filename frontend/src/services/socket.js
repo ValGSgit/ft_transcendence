@@ -152,6 +152,15 @@ class SocketService {
     this.emit('game:farm:state', state)
   }
 
+  // Chat typing indicators
+  startTyping(conversationId) {
+    this.emit('chat:typing', { conversationId, isTyping: true })
+  }
+
+  stopTyping(conversationId) {
+    this.emit('chat:typing', { conversationId, isTyping: false })
+  }
+
   // Join a room (for chat or multiplayer)
   joinRoom(roomId) {
     this.emit('room:join', { roomId })

@@ -280,7 +280,7 @@ export const useSocialStore = defineStore('social', () => {
 
   async function markNotificationRead(notificationId) {
     try {
-      await api.put(`/notifications/${notificationId}/read`)
+      await api.post(`/notifications/${notificationId}/read`)
       const notification = notifications.value.find(n => n.id === notificationId)
       if (notification) {
         notification.read = true
@@ -292,7 +292,7 @@ export const useSocialStore = defineStore('social', () => {
 
   async function markAllNotificationsRead() {
     try {
-      await api.put('/notifications/read-all')
+      await api.post('/notifications/read-all')
       notifications.value.forEach(n => n.read = true)
     } catch (err) {
       console.error('Failed to mark all notifications as read:', err)

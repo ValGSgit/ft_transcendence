@@ -1,6 +1,6 @@
 import express from 'express';
 import passport from '../config/passport.js';
-import { register, login, logout, refreshToken, getMe, setup2FA, verify2FA, disable2FA } from '../controllers/authController.js';
+import { register, login, logout, refreshToken, getMe, setup2FA, verify2FA, disable2FA, forgotPassword, resetPassword } from '../controllers/authController.js';
 import { authenticate } from '../middleware/auth.js';
 import { generateToken, generateRefreshToken } from '../utils/auth.js';
 import { sanitizeUser } from '../utils/validation.js';
@@ -13,6 +13,8 @@ const router = express.Router();
 router.post('/register', register);
 router.post('/login', login);
 router.post('/refresh', refreshToken);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 
 // Protected routes
 router.post('/logout', authenticate, logout);
