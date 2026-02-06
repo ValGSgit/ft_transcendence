@@ -34,6 +34,11 @@ export const config = {
         'http://localhost:5173', // Vue
         'http://127.0.0.1:4200',
         'http://127.0.0.1:5173',
+        'http://10.13.200.87:5173', // Actual network IP
+        'http://10.13.200.87:4200',
+        'http://172.18.0.1:5173', // Docker network
+        /^http:\/\/10\.13\.200\.\d{1,3}:5173$/, // Network range
+        /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:5173$/, // Typical home network
       ],
   },
 

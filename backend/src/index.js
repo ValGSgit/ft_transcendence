@@ -87,7 +87,9 @@ const io = initializeSocket(httpServer);
 
 // Start server
 const PORT = config.port;
-httpServer.listen(PORT, () => {
+const HOST = '0.0.0.0'; // Listen on all network interfaces
+
+httpServer.listen(PORT, HOST, () => {
   console.log('');
   console.log('╔═══════════════════════════════════════════════════════════╗');
   console.log('║                                                           ║');
@@ -96,15 +98,16 @@ httpServer.listen(PORT, () => {
   console.log('╚═══════════════════════════════════════════════════════════╝');
   console.log('');
   const dbType = process.env.DATABASE_PATH ? `File-based (${process.env.DATABASE_PATH})` : 'File-based (./data/transcendence.db)';
-  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`✅ Server running on ${HOST}:${PORT}`);
   console.log(`✅ Environment: ${config.nodeEnv}`);
   console.log(`✅ Socket.io initialized`);
   console.log(`✅ Database: ${dbType}`);
   console.log('');
   console.log('📡 Available endpoints:');
-  console.log(`   HTTP:      http://localhost:${PORT}`);
-  console.log(`   Health:    http://localhost:${PORT}/api/health`);
-  console.log(`   WebSocket: ws://localhost:${PORT}`);
+  console.log(`   Local:     http://localhost:${PORT}`);
+  console.log(`   Network:   http://10.0.2.15:${PORT}`);
+  console.log(`   Health:    http://10.0.2.15:${PORT}/api/health`);
+  console.log(`   WebSocket: ws://10.0.2.15:${PORT}`);
   console.log('');
   console.log('🌐 CORS enabled for:');
   config.cors.origins.forEach(origin => {
@@ -124,6 +127,10 @@ httpServer.listen(PORT, () => {
   console.log('   - Easy:   Slower reactions, lower accuracy');
   console.log('   - Medium: Balanced gameplay');
   console.log('   - Hard:   Fast reactions, high accuracy');
+  console.log('');
+  console.log('📱 Access from your phone:');
+  console.log('   Frontend: http://10.0.2.15:5173');
+  console.log('   Backend:  http://10.0.2.15:3000');
   console.log('');
   console.log('Press Ctrl+C to stop the server');
   console.log('');
