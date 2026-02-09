@@ -137,7 +137,16 @@
         <h3>Settings</h3>
         <button class="close-btn" @click="showPanel = false">✕</button>
       </div>
-      <div ref="guiContainer" class="gui-container"></div>
+      <div ref="guiContainer" class="gui-container">
+        <div class="settings-shop">
+          <label>Increase Map Size</label>
+          <span>💰</span>
+          <span>{{worldParams.mapSize * 10}}</span>
+          <button class="settings-button" @click="increaseMapSzie" title="Increase Map Size">
+          ➕
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Creation Modal -->
@@ -327,7 +336,7 @@ const creationData = reactive({
 const alpacaList = reactive([])
 
 const worldParams = reactive({
-  mapSize: 30,
+  mapSize: 10,
   fogNear: 20,
   fogFar: 80
 })
@@ -840,7 +849,7 @@ const buildDecorations = (size) => {
   while (decoGroup.children.length > 0) decoGroup.remove(decoGroup.children[0])
 
   // Trees
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 1; i++) {
     const x = (Math.random() - 0.5) * size * 1.5
     const z = (Math.random() - 0.5) * size * 1.5
     const tree = new THREE.Group()
@@ -850,7 +859,7 @@ const buildDecorations = (size) => {
   }
 
   // Rocks
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 1; i++) {
     const x = (Math.random() - 0.5) * size * 1.5
     const z = (Math.random() - 0.5) * size * 1.5
     const rock = createBlock(
@@ -884,6 +893,16 @@ const respawnCoins = () => {
   coins.forEach(c => scene.remove(c))
   coins.length = 0
   for (let i = 0; i < 10; i++) spawnCoin()
+}
+
+const increaseMapSzie = () => {
+  if (score.value < worldParams.mapSize * 10) {
+    alert('Not enough coins!')
+    return
+  }
+  score.value -= worldParams.mapSize * 10
+  worldParams.mapSize++
+  buildFarm(worldParams.mapSize)
 }
 
 // ==============================
@@ -1824,6 +1843,18 @@ kbd {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   z-index: 40;
   min-width: 280px;
+}
+
+.settings-shop {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.settings-button {
+  position: absolute;
+  right: 1rem
 }
 
 .panel-header {
