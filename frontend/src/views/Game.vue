@@ -509,10 +509,18 @@ const init3D = () => {
   // Start Animation Loop
   animate()
 
-  // Initialize GUI
-  if (guiContainer.value) {
-    initGUI()
-  }
+  // Initialize GUI when panel is opened
+  watch(showPanel, async (open) => {
+    if (open) {
+      await nextTick() // wait until DOM exists
+      initGUI()
+    } else {
+      if (gui) {
+        gui.destroy()
+        gui = null
+      }
+    }
+  })
 
   isEngineReady.value = true
   loadingStatus.value = "Ready!"
@@ -1589,6 +1597,11 @@ kbd {
 }
 
 .hud-top {
+  position: absolute;
+  top: 60px;
+  left: 0;
+  right: 0;
+
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -1800,11 +1813,12 @@ kbd {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
-/* Settings Panel */
 .settings-panel {
   position: absolute;
-  right: 1rem;
-  top: 1rem;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
