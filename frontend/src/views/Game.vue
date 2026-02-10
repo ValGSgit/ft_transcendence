@@ -46,8 +46,8 @@
         <button class="hud-btn" @click="showPanel = !showPanel" title="Settings">
           ⚙️
         </button>
-        <button class="hud-btn" @click="openCreationMenu(false)" title="Add Alpaca">
-          ➕
+        <button class="hud-btn" @click="openShopMenu(false)" title="Shop">
+          💰
         </button>
         <button class="hud-btn" @click="shareFarmProgress" title="Share Progress">
           📤
@@ -138,6 +138,33 @@
         <button class="close-btn" @click="showPanel = false">✕</button>
       </div>
       <div ref="guiContainer" class="gui-container"></div>
+    </div>
+
+    <!-- Shop menu -->
+    <div v-if="showShop" class="modal-overlay" @click.self="showShop = false">
+      <div class="modal creation-modal">
+        <div class="modal-header">
+          <h3>Alpaca Shop</h3>
+          <button class="close-btn" @click="showShop = false">✕</button>
+        </div>
+        <div class="shop-content">
+          <div class="form-group">
+            <label>Increase Map Size 💰 {{worldParams.mapSize * 10}}</label>
+            <button @click="increaseMapSzie" title="Increase Map Size">
+            ➕
+            </button>
+          </div>
+        </div>
+        <div class="shop-content">
+          <div class="form-group">
+            <label>New Alpaca 💰 {{worldParams.mapSize * 10}}</label>
+            <button @click="openCreationMenu(false)" title="New Alpaca">
+            ➕
+            </button>
+          </div>
+        </div>
+      </div>
+      
     </div>
 
     <!-- Creation Modal -->
@@ -300,6 +327,7 @@ const isVisiting = ref(false)
 const showPanel = ref(false)
 const showProfile = ref(false)
 const showCreation = ref(false)
+const showShop = ref(false)
 const showShareModal = ref(false)
 const isDeleteConfirm = ref(false)
 const score = ref(0)
@@ -327,7 +355,7 @@ const creationData = reactive({
 const alpacaList = reactive([])
 
 const worldParams = reactive({
-  mapSize: 30,
+  mapSize: 10,
   fogNear: 20,
   fogFar: 80
 })
@@ -509,10 +537,18 @@ const init3D = () => {
   // Start Animation Loop
   animate()
 
-  // Initialize GUI
-  if (guiContainer.value) {
-    initGUI()
-  }
+  // Initialize GUI when panel is opened
+  watch(showPanel, async (open) => {
+    if (open) {
+      await nextTick() // wait until DOM exists
+      initGUI()
+    } else {
+      if (gui) {
+        gui.destroy()
+        gui = null
+      }
+    }
+  })
 
   isEngineReady.value = true
   loadingStatus.value = "Ready!"
@@ -832,7 +868,7 @@ const buildDecorations = (size) => {
   while (decoGroup.children.length > 0) decoGroup.remove(decoGroup.children[0])
 
   // Trees
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 1; i++) {
     const x = (Math.random() - 0.5) * size * 1.5
     const z = (Math.random() - 0.5) * size * 1.5
     const tree = new THREE.Group()
@@ -842,7 +878,7 @@ const buildDecorations = (size) => {
   }
 
   // Rocks
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 1; i++) {
     const x = (Math.random() - 0.5) * size * 1.5
     const z = (Math.random() - 0.5) * size * 1.5
     const rock = createBlock(
@@ -878,14 +914,39 @@ const respawnCoins = () => {
   for (let i = 0; i < 10; i++) spawnCoin()
 }
 
+const increaseMapSzie = () => {
+  if (score.value < worldParams.mapSize * 10) {
+    alert('Not enough coins!')
+    return
+  }
+  score.value -= worldParams.mapSize * 10
+  worldParams.mapSize++
+  buildFarm(worldParams.mapSize)
+}
+
 // ==============================
 // 6. USER INTERACTIONS
 // ==============================
+const openShopMenu = (isPlayer) => {
+  showShop.value = true
+}
+
 const openCreationMenu = (isPlayer) => {
+  if (alpacaList.length >= worldParams.mapSize) {
+    alert('Not enough farm space!')
+    return
+  }
+  if (!isPlayer && score.value < worldParams.mapSize * 10) {
+    alert('Not enough coins!')
+    return
+  }
   creationData.isPlayer = isPlayer
   creationData.name = isPlayer ? (authStore.currentUser?.username || "Player") : `Alpaca ${alpacaList.length + 1}`
   creationData.color = presetColors[Math.floor(Math.random() * presetColors.length)]
   showCreation.value = true
+  if (!isPlayer) {
+    score.value -= worldParams.mapSize * 10
+  }
 }
 
 const confirmCreation = () => {
@@ -1296,6 +1357,7 @@ const addEvents = () => {
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
   renderer.domElement.addEventListener('click', onClick)
+  renderer.domElement.addEventListener('dblclick', onDoubleClick)
 }
 
 const removeEvents = () => {
@@ -1338,6 +1400,17 @@ const onKeyUp = (e) => {
 }
 
 const onClick = (e) => {
+  if (!isPlaying.value) return
+
+  const rect = renderer.domElement.getBoundingClientRect()
+  pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+  pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+
+  raycaster.setFromCamera(pointer, camera)
+  const intersects = raycaster.intersectObjects(scene.children, true)
+}
+
+const onDoubleClick = (e) => {
   if (!isPlaying.value) return
 
   const rect = renderer.domElement.getBoundingClientRect()
@@ -1589,6 +1662,11 @@ kbd {
 }
 
 .hud-top {
+  position: absolute;
+  top: 60px;
+  left: 0;
+  right: 0;
+
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -1800,16 +1878,24 @@ kbd {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
-/* Settings Panel */
 .settings-panel {
   position: absolute;
-  right: 1rem;
-  top: 1rem;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   z-index: 40;
   min-width: 280px;
+}
+
+.settings-shop {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #333;
 }
 
 .panel-header {
@@ -1871,6 +1957,10 @@ kbd {
 
 .modal-content {
   padding: 1.5rem;
+}
+
+.shop-content {
+  padding: 0.5rem 2rem;
 }
 
 .modal-footer {
