@@ -23,8 +23,9 @@ export const getUserPosts = async (req, res) => {
   try {
     const { userId } = req.params;
     const { limit = 20, offset = 0 } = req.query;
+    const currentUserId = req.user.id;
 
-    const posts = Post.getUserPosts(parseInt(userId), parseInt(limit), parseInt(offset));
+    const posts = Post.getUserPosts(parseInt(userId), currentUserId, parseInt(limit), parseInt(offset));
 
     return successResponse(res, {
       posts,
@@ -40,6 +41,7 @@ export const getUserPostsByUsername = async (req, res) => {
   try {
     const { username } = req.params;
     const { limit = 20, offset = 0 } = req.query;
+    const currentUserId = req.user.id;
 
     // Find user by username first
     const user = User.findByUsername(username);
@@ -47,7 +49,7 @@ export const getUserPostsByUsername = async (req, res) => {
       return errorResponse(res, 'User not found', 404);
     }
 
-    const posts = Post.getUserPosts(user.id, parseInt(limit), parseInt(offset));
+    const posts = Post.getUserPosts(user.id, currentUserId, parseInt(limit), parseInt(offset));
 
     return successResponse(res, {
       posts,

@@ -1,4 +1,5 @@
 import db from '../config/database.js';
+import crypto from 'crypto';
 
 export class User {
   static create({ username, email, password, avatar, bio }) {
@@ -202,6 +203,61 @@ export class User {
       LIMIT ?
     `);
     return stmt.all(`%${query}%`, `%${query}%`, limit);
+  }
+
+  // Password Reset Methods
+  static generatePasswordResetToken(userId) {
+    // Invalidate any existing tokens
+    const invalidateStmt = db.prepare(`
+      UPDATE password_reset_tokens
+      SET used = 1
+      WHERE user_id = ? AND used = 0
+    `);
+    invalidateStmt.run(userId);
+
+    // Generate new token
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour from now
+
+    const stmt = db.prepare(`
+      INSERT INTO password_reset_tokens (user_id, token, expires_at)
+      VALUES (?, ?, ?)
+    `);
+    stmt.run(userId, token, expiresAt);
+
+    return token;
+  }
+
+  static verifyPasswordResetToken(token) {
+    const stmt = db.prepare(`
+      SELECT prt.*, u.email, u.username
+      FROM password_reset_tokens prt
+      JOIN users u ON prt.user_id = u.id
+      WHERE prt.token = ? 
+        AND prt.used = 0 
+        AND prt.expires_at > datetime('now')
+    `);
+    const result = stmt.get(token);
+    
+    if (result) {
+      // Mark token as used
+      const updateStmt = db.prepare(`
+        UPDATE password_reset_tokens SET used = 1 WHERE id = ?
+      `);
+      updateStmt.run(result.id);
+      return { id: result.user_id, email: result.email, username: result.username };
+    }
+    return null;
+  }
+
+  static updatePassword(userId, hashedPassword) {
+    const stmt = db.prepare(`
+      UPDATE users
+      SET password = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
+    stmt.run(hashedPassword, userId);
+    return this.findById(userId);
   }
 }
 

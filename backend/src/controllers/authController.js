@@ -88,7 +88,6 @@ export const login = async (req, res) => {
     // Check if 2FA is enabled
     if (user.two_factor_enabled) {
       if (!totpCode) {
-        loading.value = false;
         return successResponse(res, {
           requires2FA: true,
           userId: user.id
@@ -306,6 +305,77 @@ export const disable2FA = async (req, res) => {
   }
 };
 
+// Forgot Password - Generate reset token
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return errorResponse(res, 'Email is required', 400);
+    }
+
+    const user = User.findByEmail(email);
+    if (!user) {
+      // Don't reveal if email exists for security
+      return successResponse(res, { 
+        message: 'If an account exists with this email, a reset link will be generated'
+      });
+    }
+
+    // Generate a reset token (valid for 1 hour)
+    const resetToken = User.generatePasswordResetToken(user.id);
+
+    // In production, this would be sent via email
+    // For now, return it in the response (for Postman testing)
+    console.log(`Password reset token generated for user ${user.email}: ${resetToken}`);
+
+    return successResponse(res, {
+      message: 'Password reset token generated',
+      // Include token in response for testing (remove in production or use email)
+      resetToken,
+      expiresIn: '1 hour'
+    }, 'Password reset initiated');
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return errorResponse(res, 'Failed to initiate password reset', 500);
+  }
+};
+
+// Reset Password - Use token to set new password
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return errorResponse(res, 'Reset token and new password are required', 400);
+    }
+
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
+      return errorResponse(res, passwordValidation.message, 400);
+    }
+
+    // Verify token and get user
+    const user = User.verifyPasswordResetToken(token);
+    if (!user) {
+      return errorResponse(res, 'Invalid or expired reset token', 400);
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPassword(newPassword);
+
+    // Update password and clear reset token
+    User.updatePassword(user.id, hashedPassword);
+
+    console.log(`Password reset successful for user ${user.email}`);
+
+    return successResponse(res, null, 'Password reset successfully');
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return errorResponse(res, 'Failed to reset password', 500);
+  }
+};
+
 export default {
   register,
   login,
@@ -315,4 +385,6 @@ export default {
   setup2FA,
   verify2FA,
   disable2FA,
+  forgotPassword,
+  resetPassword,
 };

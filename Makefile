@@ -27,6 +27,9 @@ DOCKER_COMPOSE_PROD := docker-compose.prod.yml
 BACKEND_IMAGE      := $(PROJECT_NAME)-backend
 FRONTEND_IMAGE     := $(PROJECT_NAME)-frontend
 
+# Docker permission check
+DOCKER_CHECK := $(shell docker ps >/dev/null 2>&1 && echo "ok" || echo "fail")
+
 # Default target
 .DEFAULT_GOAL := help
 
@@ -232,11 +235,21 @@ format:
 
 docker-build:
 	@echo "$(BLUE)🐳 Building development containers...$(RESET)"
+	@if ! docker ps >/dev/null 2>&1; then \
+		echo "$(RED)✗ Docker permission denied$(RESET)"; \
+		echo "$(YELLOW)Please run: $(CYAN)sudo usermod -aG docker $$USER && newgrp docker$(RESET)"; \
+		exit 1; \
+	fi
 	@$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_DEV) build
 	@echo "$(GREEN)✓ Development containers built$(RESET)"
 
 docker-up:
 	@echo "$(BLUE)🐳 Starting development containers...$(RESET)"
+	@if ! docker ps >/dev/null 2>&1; then \
+		echo "$(RED)✗ Docker permission denied$(RESET)"; \
+		echo "$(YELLOW)Please run: $(CYAN)sudo usermod -aG docker $$USER && newgrp docker$(RESET)"; \
+		exit 1; \
+	fi
 	@$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_DEV) up -d
 	@echo "$(GREEN)✓ Containers started$(RESET)"
 	@echo "$(CYAN)  Backend:  http://localhost:3000$(RESET)"
@@ -274,6 +287,13 @@ prod: prod-build prod-up
 
 prod-build:
 	@echo "$(BLUE)🚀 Building production images...$(RESET)"
+	@if ! docker ps >/dev/null 2>&1; then \
+		echo "$(RED)✗ Docker permission denied$(RESET)"; \
+		echo "$(YELLOW)Please run one of the following:$(RESET)"; \
+		echo "  1. Add your user to docker group: $(CYAN)sudo usermod -aG docker $$USER && newgrp docker$(RESET)"; \
+		echo "  2. Or use sudo: $(CYAN)sudo make prod-build$(RESET)"; \
+		exit 1; \
+	fi
 	@echo "$(YELLOW)  Syncing package-lock.json files...$(RESET)"
 	@cd $(BACKEND_DIR) && npm install --package-lock-only 2>/dev/null || true
 	@cd $(FRONTEND_DIR) && npm install --package-lock-only 2>/dev/null || true
@@ -288,6 +308,11 @@ prod-build:
 
 prod-up:
 	@echo "$(BLUE)🚀 Starting production containers...$(RESET)"
+	@if ! docker ps >/dev/null 2>&1; then \
+		echo "$(RED)✗ Docker permission denied$(RESET)"; \
+		echo "$(YELLOW)Please run: $(CYAN)sudo usermod -aG docker $$USER && newgrp docker$(RESET)"; \
+		exit 1; \
+	fi
 	@if [ -f .env.production ]; then \
 		echo "$(CYAN)  Loading .env.production...$(RESET)"; \
 		export $$(cat .env.production | grep -v '^#' | xargs) && $(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_PROD) up -d; \
