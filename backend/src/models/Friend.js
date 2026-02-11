@@ -1,9 +1,9 @@
 import db from '../config/database.js';
 
 export class Friend {
-  static sendRequest(senderId, receiverId) {
+  static async sendRequest(senderId, receiverId) {
     // Check if already friends or request exists
-    const existing = db.prepare(`
+    const existing = await db.prepare(`
       SELECT * FROM friend_requests
       WHERE (sender_id = ? AND receiver_id = ?)
          OR (sender_id = ? AND receiver_id = ?)
@@ -14,7 +14,7 @@ export class Friend {
     }
 
     // Check if already friends
-    const friendship = db.prepare(`
+    const friendship = await db.prepare(`
       SELECT * FROM friends
       WHERE (user1_id = ? AND user2_id = ?)
          OR (user1_id = ? AND user2_id = ?)
@@ -28,11 +28,11 @@ export class Friend {
       INSERT INTO friend_requests (sender_id, receiver_id)
       VALUES (?, ?)
     `);
-    const result = stmt.run(senderId, receiverId);
-    return this.getRequestById(result.lastInsertRowid);
+    const result = await stmt.run(senderId, receiverId);
+    return await this.getRequestById(result.lastInsertRowid);
   }
 
-  static getRequestById(id) {
+  static async getRequestById(id) {
     const stmt = db.prepare(`
       SELECT fr.*,
              sender.username as sender_username,
@@ -44,10 +44,10 @@ export class Friend {
       JOIN users receiver ON fr.receiver_id = receiver.id
       WHERE fr.id = ?
     `);
-    return stmt.get(id);
+    return await stmt.get(id);
   }
 
-  static getPendingRequests(userId) {
+  static async getPendingRequests(userId) {
     const stmt = db.prepare(`
       SELECT fr.*,
              sender.username as sender_username,
@@ -58,10 +58,10 @@ export class Friend {
       WHERE fr.receiver_id = ? AND fr.status = 'pending'
       ORDER BY fr.created_at DESC
     `);
-    return stmt.all(userId);
+    return await stmt.all(userId);
   }
 
-  static getSentRequests(userId) {
+  static async getSentRequests(userId) {
     const stmt = db.prepare(`
       SELECT fr.*,
              receiver.id as user_id,
@@ -73,10 +73,10 @@ export class Friend {
       WHERE fr.sender_id = ? AND fr.status = 'pending'
       ORDER BY fr.created_at DESC
     `);
-    return stmt.all(userId);
+    return await stmt.all(userId);
   }
 
-  static getSuggestions(userId, limit = 10) {
+  static async getSuggestions(userId, limit = 10) {
     // Get users who are not already friends and not blocked
     const stmt = db.prepare(`
       SELECT u.id, u.username, u.avatar, u.bio, u.online,
@@ -102,11 +102,11 @@ export class Friend {
       ORDER BY mutual_friends DESC, u.created_at DESC
       LIMIT ?
     `);
-    return stmt.all(userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, limit);
+    return await stmt.all(userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, userId, limit);
   }
 
-  static acceptRequest(requestId, userId) {
-    const request = this.getRequestById(requestId);
+  static async acceptRequest(requestId, userId) {
+    const request = await this.getRequestById(requestId);
     if (!request || request.receiver_id !== userId) {
       throw new Error('Friend request not found');
     }
@@ -115,44 +115,42 @@ export class Friend {
       throw new Error('Friend request already processed');
     }
 
-    const transaction = db.transaction(() => {
+    await db.runTransaction(async () => {
       // Update request status
-      db.prepare(`
+      await db.prepare(`
         UPDATE friend_requests
         SET status = 'accepted', updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `).run(requestId);
-
-      // Create friendship (always store with smaller ID first)
+      
+      // Create friendship (store with smaller ID first)
       const user1 = Math.min(request.sender_id, request.receiver_id);
       const user2 = Math.max(request.sender_id, request.receiver_id);
-
-      db.prepare(`
+      
+      await db.prepare(`
         INSERT INTO friends (user1_id, user2_id)
         VALUES (?, ?)
       `).run(user1, user2);
     });
 
-    transaction();
-    return this.getRequestById(requestId);
+    return await this.getRequestById(requestId);
   }
 
-  static declineRequest(requestId, userId) {
-    const request = this.getRequestById(requestId);
+  static async declineRequest(requestId, userId) {
+    const request = await this.getRequestById(requestId);
+    
     if (!request || request.receiver_id !== userId) {
-      throw new Error('Friend request not found');
+      throw new Error('Not authorized to decline this request');
     }
 
     const stmt = db.prepare(`
-      UPDATE friend_requests
-      SET status = 'declined', updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      DELETE FROM friend_requests WHERE id = ?
     `);
-    stmt.run(requestId);
-    return this.getRequestById(requestId);
+    await stmt.run(requestId);
+    return await this.getRequestById(requestId);
   }
 
-  static getFriends(userId) {
+  static async getFriends(userId) {
     const stmt = db.prepare(`
       SELECT u.id, u.username, u.email, u.avatar, u.bio, u.status, u.online, u.last_seen
       FROM users u
@@ -161,10 +159,10 @@ export class Friend {
         AND u.id != ?
       ORDER BY u.online DESC, u.username ASC
     `);
-    return stmt.all(userId, userId, userId);
+    return await stmt.all(userId, userId, userId);
   }
 
-  static unfriend(userId, friendId) {
+  static async unfriend(userId, friendId) {
     const user1 = Math.min(userId, friendId);
     const user2 = Math.max(userId, friendId);
 
@@ -172,10 +170,10 @@ export class Friend {
       DELETE FROM friends
       WHERE user1_id = ? AND user2_id = ?
     `);
-    return stmt.run(user1, user2);
+    return await stmt.run(user1, user2);
   }
 
-  static areFriends(userId1, userId2) {
+  static async areFriends(userId1, userId2) {
     const user1 = Math.min(userId1, userId2);
     const user2 = Math.max(userId1, userId2);
 
@@ -183,15 +181,15 @@ export class Friend {
       SELECT * FROM friends
       WHERE user1_id = ? AND user2_id = ?
     `);
-    return stmt.get(user1, user2) !== undefined;
+    return (await stmt.get(user1, user2)) !== undefined;
   }
 
-  static blockUser(blockerId, blockedId) {
+  static async blockUser(blockerId, blockedId) {
     // Remove friendship if exists
-    this.unfriend(blockerId, blockedId);
+    await this.unfriend(blockerId, blockedId);
 
     // Remove any pending requests
-    db.prepare(`
+    await db.prepare(`
       DELETE FROM friend_requests
       WHERE (sender_id = ? AND receiver_id = ?)
          OR (sender_id = ? AND receiver_id = ?)
@@ -202,34 +200,34 @@ export class Friend {
       INSERT OR IGNORE INTO blocked_users (blocker_id, blocked_id)
       VALUES (?, ?)
     `);
-    return stmt.run(blockerId, blockedId);
+    return await stmt.run(blockerId, blockedId);
   }
 
-  static unblockUser(blockerId, blockedId) {
+  static async unblockUser(blockerId, blockedId) {
     const stmt = db.prepare(`
       DELETE FROM blocked_users
       WHERE blocker_id = ? AND blocked_id = ?
     `);
-    return stmt.run(blockerId, blockedId);
+    return await stmt.run(blockerId, blockedId);
   }
 
-  static getBlockedUsers(userId) {
+  static async getBlockedUsers(userId) {
     const stmt = db.prepare(`
       SELECT u.id, u.username, u.avatar
       FROM users u
       JOIN blocked_users b ON b.blocked_id = u.id
       WHERE b.blocker_id = ?
     `);
-    return stmt.all(userId);
+    return await stmt.all(userId);
   }
 
-  static isBlocked(userId1, userId2) {
+  static async isBlocked(userId1, userId2) {
     const stmt = db.prepare(`
       SELECT * FROM blocked_users
       WHERE (blocker_id = ? AND blocked_id = ?)
          OR (blocker_id = ? AND blocked_id = ?)
     `);
-    return stmt.get(userId1, userId2, userId2, userId1) !== undefined;
+    return (await stmt.get(userId1, userId2, userId2, userId1)) !== undefined;
   }
 }
 

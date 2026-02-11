@@ -29,7 +29,7 @@ export const createGame = async (req, res) => {
       return errorResponse(res, 'Invalid AI difficulty', 400);
     }
 
-    const game = Game.create(
+    const game = await Game.create(
       req.user.id,
       opponentId ? parseInt(opponentId) : null,
       isAIGame,
@@ -46,7 +46,7 @@ export const createGame = async (req, res) => {
 export const getGame = async (req, res) => {
   try {
     const { gameId } = req.params;
-    const game = Game.findById(parseInt(gameId));
+    const game = await Game.findById(parseInt(gameId));
 
     if (!game) {
       return errorResponse(res, 'Game not found', 404);
@@ -71,7 +71,7 @@ export const getGame = async (req, res) => {
 export const startGame = async (req, res) => {
   try {
     const { gameId } = req.params;
-    const game = Game.findById(parseInt(gameId));
+    const game = await Game.findById(parseInt(gameId));
     
     if (!game) {
       return errorResponse(res, 'Game not found', 404);
@@ -82,7 +82,7 @@ export const startGame = async (req, res) => {
       return errorResponse(res, 'Only the game creator can start the game', 403);
     }
 
-    const startedGame = Game.startGame(parseInt(gameId));
+    const startedGame = await Game.startGame(parseInt(gameId));
     return successResponse(res, { game: startedGame }, 'Game started');
   } catch (error) {
     console.error('Start game error:', error);
@@ -99,7 +99,7 @@ export const updateScore = async (req, res) => {
       return errorResponse(res, 'Both player scores are required', 400);
     }
 
-    const game = Game.findById(parseInt(gameId));
+    const game = await Game.findById(parseInt(gameId));
     if (!game) {
       return errorResponse(res, 'Game not found', 404);
     }
@@ -110,7 +110,7 @@ export const updateScore = async (req, res) => {
       return errorResponse(res, 'Not authorized to update this game', 403);
     }
 
-    const updatedGame = Game.updateScore(
+    const updatedGame = await Game.updateScore(
       parseInt(gameId),
       parseInt(player1Score),
       parseInt(player2Score)
@@ -132,7 +132,7 @@ export const endGame = async (req, res) => {
       return errorResponse(res, 'Winner ID is required', 400);
     }
 
-    const game = Game.findById(parseInt(gameId));
+    const game = await Game.findById(parseInt(gameId));
     if (!game) {
       return errorResponse(res, 'Game not found', 404);
     }
@@ -153,7 +153,7 @@ export const endGame = async (req, res) => {
       return errorResponse(res, 'Winner must be a game participant', 400);
     }
 
-    const endedGame = Game.endGame(parseInt(gameId), winnerIdInt === 0 ? null : winnerIdInt);
+    const endedGame = await Game.endGame(parseInt(gameId), winnerIdInt === 0 ? null : winnerIdInt);
 
     return successResponse(res, { game: endedGame }, 'Game ended');
   } catch (error) {
@@ -169,7 +169,7 @@ export const getMatchHistory = async (req, res) => {
 
     const targetUserId = userId ? parseInt(userId) : req.user.id;
 
-    const games = Game.getUserGames(
+    const games = await Game.getUserGames(
       targetUserId,
       parseInt(limit),
       parseInt(offset)
@@ -185,7 +185,7 @@ export const getMatchHistory = async (req, res) => {
 export const getLeaderboard = async (req, res) => {
   try {
     const { limit = 100 } = req.query;
-    const leaderboard = Game.getLeaderboard(parseInt(limit));
+    const leaderboard = await Game.getLeaderboard(parseInt(limit));
 
     return successResponse(res, { leaderboard, count: leaderboard.length });
   } catch (error) {
@@ -197,7 +197,7 @@ export const getLeaderboard = async (req, res) => {
 export const abandonGame = async (req, res) => {
   try {
     const { gameId } = req.params;
-    const game = Game.abandonGame(parseInt(gameId));
+    const game = await Game.abandonGame(parseInt(gameId));
 
     return successResponse(res, { game }, 'Game abandoned');
   } catch (error) {
@@ -208,7 +208,7 @@ export const abandonGame = async (req, res) => {
 
 export const getActiveGames = async (req, res) => {
   try {
-    const games = Game.getActiveGames();
+    const games = await Game.getActiveGames();
     return successResponse(res, { games, count: games.length });
   } catch (error) {
     console.error('Get active games error:', error);

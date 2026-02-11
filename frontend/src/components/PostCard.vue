@@ -85,7 +85,7 @@
       >
         {{ isLiked ? '❤️' : '🤍' }} Like
       </button>
-      <button class="action-btn" @click="showComments = !showComments">
+      <button class="action-btn" @click="toggleComments">
         💬 Comment
       </button>
       <button class="action-btn" @click="$emit('share', post)">
@@ -147,7 +147,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { socketService } from '../services/socket'
 
@@ -158,7 +158,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['like', 'comment', 'share', 'delete', 'edit'])
+const emit = defineEmits(['like', 'comment', 'share', 'delete', 'edit', 'loadComments'])
 
 const authStore = useAuthStore()
 const currentUser = computed(() => authStore.currentUser)
@@ -235,11 +235,12 @@ const displayedComments = computed(() => {
 
 // Normalize comment author data
 const normalizeCommentAuthor = (comment) => {
+  if (!comment) return { id: null, username: 'Unknown', avatar: null }
   if (comment.author) return comment.author
   return {
-    id: comment.user_id,
-    username: comment.username,
-    avatar: comment.avatar
+    id: comment.user_id || null,
+    username: comment.username || 'Unknown',
+    avatar: comment.avatar || null
   }
 }
 
@@ -283,6 +284,14 @@ function formatTime(dateString) {
     month: 'short', 
     day: 'numeric' 
   })
+}
+
+function toggleComments() {
+  showComments.value = !showComments.value
+  // If opening comments and no comments loaded yet, emit event to load them
+  if (showComments.value && (!props.post.comments || props.post.comments.length === 0) && commentsCount.value > 0) {
+    emit('loadComments', props.post.id)
+  }
 }
 
 function submitComment() {

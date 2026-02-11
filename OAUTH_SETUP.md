@@ -1,212 +1,373 @@
-# OAuth Setup Guide
+# 🔐 OAuth Setup Guide
 
-## Overview
-The application now supports Google and GitHub OAuth authentication alongside traditional email/password login with optional 2FA.
+Complete guide for configuring Google and GitHub OAuth authentication.
 
-## Features Implemented
+## ⚠️ Critical Information
 
-### ✅ Backend
-1. **File-based SQLite Database** - Data now persists between restarts at `./backend/data/transcendence.db`
-2. **Username/Email Login** - Users can log in with either their username or email
-3. **2FA (TOTP)** - Optional two-factor authentication using authenticator apps
-4. **Google OAuth** - Sign in with Google account
-5. **GitHub OAuth** - Sign in with GitHub account
-6. **Passport.js Integration** - Secure OAuth flow handling
+**OAuth providers DO NOT support private IP addresses!**
 
-### ✅ Frontend
-1. **2FA Support** - Code input field appears when 2FA is required
-2. **OAuth Buttons** - Google and GitHub login buttons (replaced 42)
-3. **OAuth Callback Handler** - Processes OAuth tokens and redirects
-4. **Improved Error Handling** - Better user feedback
+❌ **Won't work:**
+- `http://10.13.200.87:3000/...`
+- `http://192.168.1.100:3000/...`
+- `http://172.16.0.1:3000/...`
 
-## Setting Up OAuth
+✅ **Will work:**
+- `http://localhost:3000/...` (development)
+- `http://127.0.0.1:3000/...` (development)
+- `https://yourdomain.com/...` (production)
 
-### Google OAuth
+## 🚀 Quick Fix for Your Current Error
 
-1. **Go to Google Cloud Console**: https://console.cloud.google.com/
+### 1. Update OAuth App Callback URLs
 
-2. **Create a New Project** (or select existing)
-   - Click "Select a project" → "New Project"
-   - Enter project name → Create
+You need to update the callback URLs in both Google Cloud Console and GitHub:
 
-3. **Enable Google+ API**
-   - Navigation menu → APIs & Services → Library
-   - Search for "Google+ API" → Enable
-
-4. **Create OAuth Credentials**
-   - APIs & Services → Credentials
-   - Click "Create Credentials" → "OAuth client ID"
-   - Application type: "Web application"
-   - Name: "Transcendence"
-   - Authorized JavaScript origins:
-     - `http://localhost:5173`
-     - `http://localhost:3000`
-   - Authorized redirect URIs:
-     - `http://localhost:3000/api/auth/google/callback`
-   - Click Create
-
-5. **Copy Credentials**
-   - Copy the Client ID and Client Secret
-   - Update `/backend/.env`:
-     ```env
-     GOOGLE_CLIENT_ID=your-client-id-here
-     GOOGLE_CLIENT_SECRET=your-client-secret-here
-     ```
-
-### GitHub OAuth
-
-1. **Go to GitHub Settings**: https://github.com/settings/developers
-
-2. **Register New OAuth Application**
-   - Click "New OAuth App"
-   - Application name: "Transcendence"
-   - Homepage URL: `http://localhost:5173`
-   - Authorization callback URL: `http://localhost:3000/api/auth/github/callback`
-   - Click "Register application"
-
-3. **Generate Client Secret**
-   - Click "Generate a new client secret"
-   - Copy the secret immediately (shown only once)
-
-4. **Copy Credentials**
-   - Copy the Client ID and Client Secret
-   - Update `/backend/.env`:
-     ```env
-     GITHUB_CLIENT_ID=your-client-id-here
-     GITHUB_CLIENT_SECRET=your-client-secret-here
-     ```
-
-## Testing OAuth (Without Real Credentials)
-
-For development/testing without setting up actual OAuth:
-
-1. The application will work with traditional email/password login
-2. OAuth buttons will appear but won't work until credentials are configured
-3. You can skip OAuth setup and just use:
-   - Email/Password registration
-   - Username/Email login
-   - Optional 2FA
-
-## Login Methods
-
-### 1. Email/Password Login
+**Current (Wrong):**
 ```
-Email: user@example.com (or username)
-Password: YourPassword123
+http://10.13.200.87:3000/api/auth/google/callback
+http://10.13.200.87:3000/api/auth/github/callback
 ```
 
-### 2. Email/Password + 2FA
+**Change to:**
 ```
-Email: user@example.com
-Password: YourPassword123
-2FA Code: 123456 (from authenticator app)
-```
-
-### 3. Google OAuth
-- Click "Continue with Google"
-- Select Google account
-- Redirects back with authentication
-
-### 4. GitHub OAuth
-- Click "Continue with GitHub"
-- Authorize the application
-- Redirects back with authentication
-
-## Setting Up 2FA
-
-1. **Login to your account** using email/password
-2. **Go to Settings** → Security
-3. **Click "Enable 2FA"**
-4. **Scan QR Code** with authenticator app (Google Authenticator, Authy, etc.)
-5. **Enter verification code** to confirm
-6. **Save backup codes** (if provided)
-
-From now on, login will require both password and 2FA code.
-
-## Database Location
-
-The SQLite database is stored at:
-```
-/backend/data/transcendence.db
+http://localhost:3000/api/auth/google/callback
+http://localhost:3000/api/auth/github/callback
 ```
 
-This file persists data between server restarts. To reset the database, simply delete this file.
+### 2. Follow Steps Below
 
-## Current Login Status
+---
 
-✅ **Fixed Issues:**
-- Database now persists data (file-based instead of in-memory)
-- Login supports both username and email
-- 2FA authentication implemented
-- OAuth (Google/GitHub) integrated
-- Proper error messages
+## 🌐 Google OAuth Setup
 
-✅ **You can now:**
-1. Register a new account
-2. Login with username OR email
-3. Access all website features
-4. Set up 2FA for enhanced security
-5. Use Google/GitHub login (once OAuth credentials are configured)
+### Step 1: Access Google Cloud Console
 
-## Next Steps
+1. Go to: https://console.cloud.google.com/
+2. Select your project or create a new one
+3. Navigate to: **APIs & Services** → **Credentials**
 
-1. **Test Registration & Login**
-   - Register at: http://localhost:5173/register
-   - Login at: http://localhost:5173/login
+### Step 2: Configure OAuth Consent Screen
 
-2. **Optional: Configure OAuth**
-   - Follow the Google/GitHub setup guides above
-   - Update credentials in `/backend/.env`
-   - Restart the backend server
+1. Click **OAuth consent screen** in the sidebar
+2. Choose **External** (for testing) or **Internal** (for G Suite/Workspace)
+3. Fill in:
+   - **App name:** Transcendence
+   - **User support email:** Your email
+   - **Developer contact:** Your email
+4. Add scopes:
+   - `userinfo.email`
+   - `userinfo.profile`
+5. Add test users (for External apps):
+   - Add your Gmail addresses
+6. Click **Save and Continue**
 
-3. **Optional: Enable 2FA**
-   - Login → Settings → Enable 2FA
-   - Scan QR code with authenticator app
+### Step 3: Create OAuth Client ID
 
-## Troubleshooting
+1. Go back to **Credentials**
+2. Click **Create Credentials** → **OAuth client ID**
+3. Choose **Web application**
+4. Configure:
 
-**Login not working?**
-- Check browser console for errors
-- Verify backend is running on port 3000
-- Check database file exists: `backend/data/transcendence.db`
+   **Name:** Transcendence Development
+   
+   **Authorized JavaScript origins:**
+   ```
+   http://localhost:3000
+   http://localhost:5173
+   ```
+   
+   **Authorized redirect URIs:**
+   ```
+   http://localhost:3000/api/auth/google/callback
+   ```
 
-**OAuth not working?**
-- Verify credentials are set in `.env`
-- Check redirect URLs match exactly
-- Ensure OAuth apps are enabled in Google/GitHub console
+5. Click **Create**
+6. Copy your **Client ID** and **Client Secret**
 
-**2FA code rejected?**
-- Ensure device time is synced (TOTP depends on time)
-- Try the next code (codes refresh every 30 seconds)
-- Verify you're entering 6 digits
+### Step 4: Update Environment Variables
 
-## Environment Variables
-
-Complete `.env` file for backend:
+Edit `backend/.env.development`:
 
 ```env
-# Server
-PORT=3000
-NODE_ENV=development
-
-# JWT
-JWT_SECRET=your-super-secret-jwt-key-change-in-production
-JWT_EXPIRES_IN=24h
-JWT_REFRESH_EXPIRES_IN=7d
-
-# Database
-DATABASE_PATH=./data/transcendence.db
-
-# OAuth - Google
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_CLIENT_ID=your-client-id-here.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-client-secret-here
 GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+```
 
-# OAuth - GitHub
+---
+
+## 🐙 GitHub OAuth Setup
+
+### Step 1: Create OAuth App
+
+1. Go to: https://github.com/settings/developers
+2. Click **OAuth Apps** → **New OAuth App**
+
+### Step 2: Configure Application
+
+Fill in:
+
+**Application name:** Transcendence Development
+
+**Homepage URL:**
+```
+http://localhost:5173
+```
+
+**Application description:** (optional)
+```
+Transcendence - Social Gaming Platform
+```
+
+**Authorization callback URL:**
+```
+http://localhost:3000/api/auth/github/callback
+```
+
+### Step 3: Get Credentials
+
+1. Click **Register application**
+2. Copy your **Client ID**
+3. Click **Generate a new client secret**
+4. Copy your **Client Secret** (you won't be able to see it again!)
+
+### Step 4: Update Environment Variables
+
+Edit `backend/.env.development`:
+
+```env
 GITHUB_CLIENT_ID=your-github-client-id
 GITHUB_CLIENT_SECRET=your-github-client-secret
 GITHUB_CALLBACK_URL=http://localhost:3000/api/auth/github/callback
+```
 
-# Frontend
+---
+
+## 🔄 Testing OAuth
+
+### 1. Start Backend
+
+```bash
+cd backend
+npm run dev
+```
+
+Wait for:
+```
+✓ Registering Google OAuth strategy
+✓ Registering GitHub OAuth strategy
+```
+
+### 2. Start Frontend
+
+```bash
+cd frontend
+npm run dev
+```
+
+### 3. Test Login Flow
+
+1. Go to: http://localhost:5173
+2. Click **Login**
+3. Choose **Sign in with Google** or **Sign in with GitHub**
+4. Authorize the app
+5. You should be redirected back and logged in
+
+---
+
+## 🌍 Production Setup
+
+For production deployment with a real domain:
+
+### 1. Update OAuth Apps
+
+**Google Cloud Console:**
+- Add your domain to Authorized JavaScript origins:
+  ```
+  https://yourdomain.com
+  ```
+- Add callback URL:
+  ```
+  https://yourdomain.com/api/auth/google/callback
+  ```
+
+**GitHub OAuth App:**
+- Create a new OAuth app for production OR update existing
+- Homepage URL: `https://yourdomain.com`
+- Callback URL: `https://yourdomain.com/api/auth/github/callback`
+
+### 2. Update Production Environment
+
+Edit `.env.production`:
+
+```env
+GOOGLE_CALLBACK_URL=https://yourdomain.com/api/auth/google/callback
+GITHUB_CALLBACK_URL=https://yourdomain.com/api/auth/github/callback
+FRONTEND_URL=https://yourdomain.com
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Error: "device_id and device_name are required for private IP"
+
+**Cause:** Using private IP address (10.x.x.x, 192.168.x.x, 172.16-31.x.x)
+
+**Solution:** 
+- Use `localhost` or `127.0.0.1` for development
+- Use public domain for production
+- Update callback URLs in Google Cloud Console
+
+### Error: "redirect_uri is not associated with this application"
+
+**Cause:** Callback URL mismatch between your app and GitHub OAuth app settings
+
+**Solution:**
+1. Go to: https://github.com/settings/developers
+2. Click your OAuth app
+3. Verify **Authorization callback URL** matches exactly:
+   ```
+   http://localhost:3000/api/auth/github/callback
+   ```
+4. Update if needed
+5. Click **Update application**
+
+### Error: "Access blocked: This app's request is invalid"
+
+**Cause:** OAuth consent screen not configured or missing scopes
+
+**Solution:**
+1. Configure OAuth consent screen in Google Cloud Console
+2. Add required scopes (userinfo.email, userinfo.profile)
+3. Add yourself as a test user for External apps
+
+### OAuth redirects but doesn't log in
+
+**Check:**
+1. Backend console for errors
+2. Network tab in browser DevTools
+3. Verify environment variables loaded:
+   ```bash
+   cd backend
+   node -e "import('./src/config/passport.js')"
+   ```
+
+### "OAuth not configured" in backend logs
+
+**Cause:** Missing or incorrect environment variables
+
+**Solution:**
+1. Verify `.env` file exists in backend folder
+2. Check client ID and secret are set:
+   ```bash
+   cd backend
+   grep GOOGLE_CLIENT_ID .env
+   grep GITHUB_CLIENT_ID .env
+   ```
+3. Restart backend after changing `.env`
+
+---
+
+## 📱 Network Access Considerations
+
+### VirtualBox NAT Network
+
+If you're using VirtualBox with NAT networking:
+
+**Problem:** Other devices can't access your app via private IP
+
+**Solutions:**
+
+1. **Use Port Forwarding (Recommended for OAuth):**
+   - Keep using localhost inside VM
+   - Access from host: `http://localhost:3000`
+   - OAuth works because it uses localhost
+
+2. **Switch to Bridged Adapter:**
+   - VM gets real network IP (e.g., 192.168.1.x)
+   - You'll need to create new OAuth apps for that IP
+   - Still won't work because it's a private IP!
+
+3. **Use ngrok (Best for testing from phone):**
+   ```bash
+   # Install ngrok
+   snap install ngrok
+   
+   # Tunnel backend
+   ngrok http 3000
+   
+   # You'll get: https://abc123.ngrok.io
+   # Update OAuth apps with this URL
+   ```
+
+### Accessing from Phone on Same Network
+
+**The Issue:**
+- Your phone can't reach localhost on your computer
+- Private IPs don't work with OAuth
+- Need a solution that gives public URL
+
+**Best Solution: ngrok**
+
+```bash
+# Terminal 1: Backend tunnel
+ngrok http 3000
+# Copy the https URL (e.g., https://abc123.ngrok.io)
+
+# Terminal 2: Frontend tunnel  
+ngrok http 5173
+# Copy the https URL
+
+# Update OAuth apps with ngrok backend URL
+# Update frontend/.env.development.local:
+VITE_API_URL=https://abc123.ngrok.io
+VITE_WS_URL=https://abc123.ngrok.io
+
+# Access frontend ngrok URL from phone
+```
+
+---
+
+## 📋 Environment Files Summary
+
+### Development (backend/.env.development)
+```env
+GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+GITHUB_CALLBACK_URL=http://localhost:3000/api/auth/github/callback
 FRONTEND_URL=http://localhost:5173
 ```
+
+### Production (.env.production)
+```env
+GOOGLE_CALLBACK_URL=https://yourdomain.com/api/auth/google/callback
+GITHUB_CALLBACK_URL=https://yourdomain.com/api/auth/github/callback
+FRONTEND_URL=https://yourdomain.com
+```
+
+---
+
+## ✅ Checklist
+
+Before testing OAuth:
+
+- [ ] OAuth apps created (Google and/or GitHub)
+- [ ] Callback URLs use `localhost` (not private IP)
+- [ ] Callback URLs match exactly in OAuth app settings
+- [ ] Client ID and Secret copied to `.env` file
+- [ ] Backend restarted after `.env` changes
+- [ ] Frontend configured with correct API URL
+- [ ] Testing from same machine (or using ngrok for remote)
+
+---
+
+## 🔗 Useful Links
+
+- **Google Cloud Console:** https://console.cloud.google.com/
+- **GitHub OAuth Apps:** https://github.com/settings/developers
+- **ngrok:** https://ngrok.com/
+- **OAuth 2.0 Playground:** https://developers.google.com/oauthplayground/
+
+---
+
+**Need help?** Check backend logs for detailed error messages.

@@ -1,16 +1,16 @@
 import db from '../config/database.js';
 
 export class Game {
-  static create(player1Id, player2Id = null, isAiGame = false, aiDifficulty = null) {
+  static async create(player1Id, player2Id = null, isAiGame = false, aiDifficulty = null) {
     const stmt = db.prepare(`
       INSERT INTO games (player1_id, player2_id, is_ai_game, ai_difficulty, status)
       VALUES (?, ?, ?, ?, 'pending')
     `);
-    const result = stmt.run(player1Id, player2Id, isAiGame ? 1 : 0, aiDifficulty);
-    return this.findById(result.lastInsertRowid);
+    const result = await stmt.run(player1Id, player2Id, isAiGame ? 1 : 0, aiDifficulty);
+    return await this.findById(result.lastInsertRowid);
   }
 
-  static findById(id) {
+  static async findById(id) {
     const stmt = db.prepare(`
       SELECT g.*,
              p1.username as player1_username,
@@ -24,58 +24,57 @@ export class Game {
       LEFT JOIN users w ON g.winner_id = w.id
       WHERE g.id = ?
     `);
-    return stmt.get(id);
+    return await stmt.get(id);
   }
 
-  static startGame(gameId) {
+  static async startGame(gameId) {
     const stmt = db.prepare(`
       UPDATE games
       SET status = 'in_progress', started_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
-    stmt.run(gameId);
-    return this.findById(gameId);
+    await stmt.run(gameId);
+    return await this.findById(gameId);
   }
 
-  static updateScore(gameId, player1Score, player2Score) {
+  static async updateScore(gameId, player1Score, player2Score) {
     const stmt = db.prepare(`
       UPDATE games
       SET player1_score = ?, player2_score = ?
       WHERE id = ?
     `);
-    stmt.run(player1Score, player2Score, gameId);
-    return this.findById(gameId);
+    await stmt.run(player1Score, player2Score, gameId);
+    return await this.findById(gameId);
   }
 
-  static endGame(gameId, winnerId) {
-    const game = this.findById(gameId);
+  static async endGame(gameId, winnerId) {
+    const game = await this.findById(gameId);
     if (!game) {
       throw new Error('Game not found');
     }
 
-    const transaction = db.transaction(() => {
+    await db.runTransaction(async () => {
       // Update game
-      db.prepare(`
+      await db.prepare(`
         UPDATE games
         SET status = 'completed', winner_id = ?, ended_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `).run(winnerId, gameId);
 
       // Update stats for player 1
-      this.updatePlayerStats(game.player1_id, game.player1_score, winnerId === game.player1_id);
+      await this.updatePlayerStats(game.player1_id, game.player1_score, winnerId === game.player1_id);
 
       // Update stats for player 2 (if not AI)
       if (game.player2_id && !game.is_ai_game) {
-        this.updatePlayerStats(game.player2_id, game.player2_score, winnerId === game.player2_id);
+        await this.updatePlayerStats(game.player2_id, game.player2_score, winnerId === game.player2_id);
       }
     });
 
-    transaction();
-    return this.findById(gameId);
+    return await this.findById(gameId);
   }
 
-  static updatePlayerStats(userId, score, won) {
-    const stats = db.prepare(`
+  static async updatePlayerStats(userId, score, won) {
+    const stats = await db.prepare(`
       SELECT * FROM user_stats WHERE user_id = ?
     `).get(userId);
 
@@ -87,7 +86,7 @@ export class Game {
     const currentStreak = won ? stats.current_streak + 1 : 0;
     const winStreak = Math.max(stats.win_streak, currentStreak);
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE user_stats
       SET games_played = ?,
           games_won = ?,
@@ -100,7 +99,7 @@ export class Game {
     `).run(gamesPlayed, gamesWon, gamesLost, totalScore, highestScore, winStreak, currentStreak, userId);
   }
 
-  static getUserGames(userId, limit = 20, offset = 0) {
+  static async getUserGames(userId, limit = 20, offset = 0) {
     const stmt = db.prepare(`
       SELECT g.*,
              p1.username as player1_username,
@@ -116,10 +115,10 @@ export class Game {
       ORDER BY g.created_at DESC
       LIMIT ? OFFSET ?
     `);
-    return stmt.all(userId, userId, limit, offset);
+    return await stmt.all(userId, userId, limit, offset);
   }
 
-  static getLeaderboard(limit = 100) {
+  static async getLeaderboard(limit = 100) {
     const stmt = db.prepare(`
       SELECT u.id, u.username, u.avatar,
              s.games_played, s.games_won, s.games_lost,
@@ -131,20 +130,20 @@ export class Game {
       ORDER BY s.games_won DESC, win_rate DESC, s.total_score DESC
       LIMIT ?
     `);
-    return stmt.all(limit);
+    return await stmt.all(limit);
   }
 
-  static abandonGame(gameId) {
+  static async abandonGame(gameId) {
     const stmt = db.prepare(`
       UPDATE games
       SET status = 'abandoned', ended_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
-    stmt.run(gameId);
-    return this.findById(gameId);
+    await stmt.run(gameId);
+    return await this.findById(gameId);
   }
 
-  static getActiveGames() {
+  static async getActiveGames() {
     const stmt = db.prepare(`
       SELECT g.*,
              p1.username as player1_username,
@@ -157,7 +156,7 @@ export class Game {
       WHERE g.status IN ('pending', 'in_progress')
       ORDER BY g.created_at DESC
     `);
-    return stmt.all();
+    return await stmt.all();
   }
 }
 

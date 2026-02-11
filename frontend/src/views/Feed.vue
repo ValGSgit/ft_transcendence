@@ -38,6 +38,7 @@
           @share="handleShare"
           @delete="handleDelete"
           @edit="handleEdit"
+          @loadComments="handleLoadComments"
         />
       </TransitionGroup>
 
@@ -285,6 +286,10 @@ function handleLike(postId) {
 
 function handleComment(postId, content) {
   socialStore.commentOnPost(postId, content)
+}
+
+function handleLoadComments(postId) {
+  socialStore.fetchPostComments(postId)
 }
 
 function handleShare(post) {

@@ -30,3 +30,8 @@ npm-debug.log*
 # Angular
 .angular/
 .env.production
+
+# Environment files with secrets
+backend/.env
+backend/.env.development
+backend/.env.production

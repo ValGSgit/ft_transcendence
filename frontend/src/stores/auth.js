@@ -63,7 +63,13 @@ export const useAuthStore = defineStore('auth', () => {
       socketService.connect(token.value)
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || err.message || 'Registration failed'
+      // Handle 409 Conflict (user already exists)
+      if (err.response?.status === 409) {
+        error.value = err.response?.data?.message || 'User already exists. Please use a different email or username.'
+      } else {
+        error.value = err.response?.data?.message || err.message || 'Registration failed'
+      }
+      console.error('Registration error:', err)
       throw err
     } finally {
       loading.value = false
@@ -129,8 +135,9 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     error.value = null
     try {
-      const response = await api.put('/users/me', profileData)
-      user.value = { ...user.value, ...response.data.user }
+      const response = await api.put('/users/profile', profileData)
+      const updatedUser = response.data.data?.user || response.data.user
+      user.value = { ...user.value, ...updatedUser }
       return response.data
     } catch (err) {
       error.value = err.response?.data?.message || 'Update failed'
@@ -144,8 +151,9 @@ export const useAuthStore = defineStore('auth', () => {
     const response = await api.post('/auth/refresh', {
       refreshToken: refreshToken.value
     })
-    setTokens(response.data.token, response.data.refreshToken)
-    return response.data.token
+    const responseData = response.data.data || response.data
+    setTokens(responseData.token, responseData.refreshToken)
+    return responseData.token
   }
 
   function setTokens(accessToken, refresh) {

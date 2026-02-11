@@ -1,7 +1,7 @@
 <template>
   <div id="app" :class="{ 'game-mode': isGameRoute }">
     <!-- Navigation Bar (hidden in game mode) -->
-    <nav v-if="!isGameRoute" class="navbar">
+    <nav class="navbar">
       <div class="nav-container">
         <!-- Logo -->
         <router-link to="/" class="nav-logo">

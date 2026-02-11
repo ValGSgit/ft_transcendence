@@ -1,23 +1,23 @@
 import db from '../config/database.js';
 
 export class Chat {
-  static createRoom(name, type, createdBy) {
+  static async createRoom(name, type, createdBy) {
     const stmt = db.prepare(`
       INSERT INTO chat_rooms (name, type, created_by)
       VALUES (?, ?, ?)
     `);
-    const result = stmt.run(name, type, createdBy);
-    return this.getRoomById(result.lastInsertRowid);
+    const result = await stmt.run(name, type, createdBy);
+    return await this.getRoomById(result.lastInsertRowid);
   }
 
-  static getRoomById(id) {
+  static async getRoomById(id) {
     const stmt = db.prepare(`
       SELECT * FROM chat_rooms WHERE id = ?
     `);
-    return stmt.get(id);
+    return await stmt.get(id);
   }
 
-  static getUserRooms(userId) {
+  static async getUserRooms(userId) {
     const stmt = db.prepare(`
       SELECT cr.*, 
              COUNT(DISTINCT m.id) as message_count,
@@ -29,26 +29,26 @@ export class Chat {
       GROUP BY cr.id
       ORDER BY last_message_at DESC
     `);
-    return stmt.all(userId);
+    return await stmt.all(userId);
   }
 
-  static addMember(roomId, userId) {
+  static async addMember(roomId, userId) {
     const stmt = db.prepare(`
       INSERT OR IGNORE INTO chat_room_members (room_id, user_id)
       VALUES (?, ?)
     `);
-    return stmt.run(roomId, userId);
+    return await stmt.run(roomId, userId);
   }
 
-  static removeMember(roomId, userId) {
+  static async removeMember(roomId, userId) {
     const stmt = db.prepare(`
       DELETE FROM chat_room_members
       WHERE room_id = ? AND user_id = ?
     `);
-    return stmt.run(roomId, userId);
+    return await stmt.run(roomId, userId);
   }
 
-  static getRoomMembers(roomId) {
+  static async getRoomMembers(roomId) {
     const stmt = db.prepare(`
       SELECT u.id, u.username, u.avatar, u.online, u.last_seen
       FROM users u
@@ -56,19 +56,19 @@ export class Chat {
       WHERE crm.room_id = ?
       ORDER BY u.username
     `);
-    return stmt.all(roomId);
+    return await stmt.all(roomId);
   }
 
-  static createMessage(roomId, senderId, content) {
+  static async createMessage(roomId, senderId, content) {
     const stmt = db.prepare(`
       INSERT INTO messages (room_id, sender_id, content)
       VALUES (?, ?, ?)
     `);
-    const result = stmt.run(roomId, senderId, content);
-    return this.getMessageById(result.lastInsertRowid);
+    const result = await stmt.run(roomId, senderId, content);
+    return await this.getMessageById(result.lastInsertRowid);
   }
 
-  static getMessageById(id) {
+  static async getMessageById(id) {
     const stmt = db.prepare(`
       SELECT m.*,
              u.username as sender_username,
@@ -77,10 +77,10 @@ export class Chat {
       JOIN users u ON m.sender_id = u.id
       WHERE m.id = ?
     `);
-    return stmt.get(id);
+    return await stmt.get(id);
   }
 
-  static getRoomMessages(roomId, limit = 50, offset = 0) {
+  static async getRoomMessages(roomId, limit = 50, offset = 0) {
     const stmt = db.prepare(`
       SELECT m.*,
              u.username as sender_username,
@@ -91,12 +91,12 @@ export class Chat {
       ORDER BY m.created_at DESC
       LIMIT ? OFFSET ?
     `);
-    return stmt.all(roomId, limit, offset).reverse();
+    return (await stmt.all(roomId, limit, offset)).reverse();
   }
 
-  static getOrCreateDirectRoom(user1Id, user2Id) {
-    // Check if a direct room already exists between these users
-    const existing = db.prepare(`
+  static async getOrCreateDirectRoom(user1Id, user2Id) {
+    // Check if a direct room already exists between these users  
+    const existing = await db.prepare(`
       SELECT cr.*
       FROM chat_rooms cr
       JOIN chat_room_members crm1 ON cr.id = crm1.room_id
@@ -110,36 +110,35 @@ export class Chat {
       return existing;
     }
 
-    // Create new direct room
-    const transaction = db.transaction(() => {
+    // Create new direct room using transaction
+    const roomId = await db.runTransaction(async () => {
       const roomStmt = db.prepare(`
         INSERT INTO chat_rooms (name, type, created_by)
         VALUES (?, 'direct', ?)
       `);
-      const result = roomStmt.run(`Direct: ${user1Id}-${user2Id}`, user1Id);
-      const roomId = result.lastInsertRowid;
+      const result = await roomStmt.run(`Direct: ${user1Id}-${user2Id}`, user1Id);
+      const newRoomId = result.lastInsertRowid;
 
       // Add both users as members
       const memberStmt = db.prepare(`
         INSERT INTO chat_room_members (room_id, user_id)
         VALUES (?, ?)
       `);
-      memberStmt.run(roomId, user1Id);
-      memberStmt.run(roomId, user2Id);
+      await memberStmt.run(newRoomId, user1Id);
+      await memberStmt.run(newRoomId, user2Id);
 
-      return roomId;
+      return newRoomId;
     });
 
-    const roomId = transaction();
-    return this.getRoomById(roomId);
+    return await this.getRoomById(roomId);
   }
 
-  static deleteRoom(roomId) {
+  static async deleteRoom(roomId) {
     const stmt = db.prepare('DELETE FROM chat_rooms WHERE id = ?');
-    return stmt.run(roomId);
+    return await stmt.run(roomId);
   }
 
-  static searchMessages(query, userId, limit = 20) {
+  static async searchMessages(query, userId, limit = 20) {
     const stmt = db.prepare(`
       SELECT m.*,
              u.username as sender_username,
@@ -153,8 +152,9 @@ export class Chat {
       ORDER BY m.created_at DESC
       LIMIT ?
     `);
-    return stmt.all(userId, `%${query}%`, limit);
+    return await stmt.all(userId, `%${query}%`, limit);
   }
 }
 
 export default Chat;
+

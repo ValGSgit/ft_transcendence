@@ -27,6 +27,9 @@ DOCKER_COMPOSE_PROD := docker-compose.prod.yml
 BACKEND_IMAGE      := $(PROJECT_NAME)-backend
 FRONTEND_IMAGE     := $(PROJECT_NAME)-frontend
 
+# Docker permission check
+DOCKER_CHECK := $(shell docker ps >/dev/null 2>&1 && echo "ok" || echo "fail")
+
 # Default target
 .DEFAULT_GOAL := help
 
@@ -90,9 +93,14 @@ help:
 	@echo "  $(GREEN)make prod-restart$(RESET)     Restart production"
 	@echo ""
 	@echo "$(YELLOW)🗄️  DATABASE$(RESET)"
-	@echo "  $(GREEN)make db-reset$(RESET)         Reset database (WARNING: deletes data)"
-	@echo "  $(GREEN)make db-backup$(RESET)        Backup database"
-	@echo "  $(GREEN)make db-restore$(RESET)       Restore database from backup"
+	@echo "  $(GREEN)make db-reset$(RESET)         Reset SQLite database (dev)"
+	@echo "  $(GREEN)make db-backup$(RESET)        Backup SQLite database (dev)"
+	@echo "  $(GREEN)make db-restore$(RESET)       Restore SQLite database (dev)"
+	@echo "  $(GREEN)make db-backup-postgres$(RESET) Backup PostgreSQL (prod)"
+	@echo "  $(GREEN)make db-restore-postgres$(RESET) Restore PostgreSQL (prod)"
+	@echo "  $(GREEN)make db-test$(RESET)          Test PostgreSQL connection"
+	@echo "  $(GREEN)make db-shell$(RESET)         Open PostgreSQL shell"
+	@echo "  $(GREEN)make db-logs$(RESET)          View PostgreSQL logs"
 	@echo ""
 	@echo "$(YELLOW)🧹 CLEANUP$(RESET)"
 	@echo "  $(GREEN)make clean$(RESET)            Remove node_modules"
@@ -232,11 +240,21 @@ format:
 
 docker-build:
 	@echo "$(BLUE)🐳 Building development containers...$(RESET)"
+	@if ! docker ps >/dev/null 2>&1; then \
+		echo "$(RED)✗ Docker permission denied$(RESET)"; \
+		echo "$(YELLOW)Please run: $(CYAN)sudo usermod -aG docker $$USER && newgrp docker$(RESET)"; \
+		exit 1; \
+	fi
 	@$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_DEV) build
 	@echo "$(GREEN)✓ Development containers built$(RESET)"
 
 docker-up:
 	@echo "$(BLUE)🐳 Starting development containers...$(RESET)"
+	@if ! docker ps >/dev/null 2>&1; then \
+		echo "$(RED)✗ Docker permission denied$(RESET)"; \
+		echo "$(YELLOW)Please run: $(CYAN)sudo usermod -aG docker $$USER && newgrp docker$(RESET)"; \
+		exit 1; \
+	fi
 	@$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_DEV) up -d
 	@echo "$(GREEN)✓ Containers started$(RESET)"
 	@echo "$(CYAN)  Backend:  http://localhost:3000$(RESET)"
@@ -274,6 +292,13 @@ prod: prod-build prod-up
 
 prod-build:
 	@echo "$(BLUE)🚀 Building production images...$(RESET)"
+	@if ! docker ps >/dev/null 2>&1; then \
+		echo "$(RED)✗ Docker permission denied$(RESET)"; \
+		echo "$(YELLOW)Please run one of the following:$(RESET)"; \
+		echo "  1. Add your user to docker group: $(CYAN)sudo usermod -aG docker $$USER && newgrp docker$(RESET)"; \
+		echo "  2. Or use sudo: $(CYAN)sudo make prod-build$(RESET)"; \
+		exit 1; \
+	fi
 	@echo "$(YELLOW)  Syncing package-lock.json files...$(RESET)"
 	@cd $(BACKEND_DIR) && npm install --package-lock-only 2>/dev/null || true
 	@cd $(FRONTEND_DIR) && npm install --package-lock-only 2>/dev/null || true
@@ -288,6 +313,11 @@ prod-build:
 
 prod-up:
 	@echo "$(BLUE)🚀 Starting production containers...$(RESET)"
+	@if ! docker ps >/dev/null 2>&1; then \
+		echo "$(RED)✗ Docker permission denied$(RESET)"; \
+		echo "$(YELLOW)Please run: $(CYAN)sudo usermod -aG docker $$USER && newgrp docker$(RESET)"; \
+		exit 1; \
+	fi
 	@if [ -f .env.production ]; then \
 		echo "$(CYAN)  Loading .env.production...$(RESET)"; \
 		export $$(cat .env.production | grep -v '^#' | xargs) && $(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_PROD) up -d; \
@@ -319,16 +349,17 @@ prod-ps:
 # DATABASE
 # ============================================================================
 
+# SQLite (Development)
 db-reset:
 	@echo "$(RED)⚠️  WARNING: This will delete all data!$(RESET)"
 	@echo "$(YELLOW)Press Ctrl+C to cancel, or wait 5 seconds to continue...$(RESET)"
 	@sleep 5
-	@echo "$(BLUE)🗄️  Resetting database...$(RESET)"
+	@echo "$(BLUE)🗄️  Resetting SQLite database...$(RESET)"
 	@rm -f $(BACKEND_DIR)/data/transcendence.db
 	@echo "$(GREEN)✓ Database reset (will be recreated on next start)$(RESET)"
 
 db-backup:
-	@echo "$(BLUE)🗄️  Backing up database...$(RESET)"
+	@echo "$(BLUE)🗄️  Backing up SQLite database...$(RESET)"
 	@mkdir -p backups
 	@cp $(BACKEND_DIR)/data/transcendence.db backups/transcendence_$$(date +%Y%m%d_%H%M%S).db 2>/dev/null || echo "$(YELLOW)⚠ No database to backup$(RESET)"
 	@echo "$(GREEN)✓ Database backed up to backups/$(RESET)"
@@ -339,6 +370,27 @@ db-restore:
 	@echo ""
 	@echo "$(YELLOW)To restore, run:$(RESET)"
 	@echo "  cp backups/<backup-file> $(BACKEND_DIR)/data/transcendence.db"
+
+# PostgreSQL (Production)
+db-backup-postgres:
+	@echo "$(BLUE)🐘 Backing up PostgreSQL database...$(RESET)"
+	@./scripts/backup-db.sh
+
+db-restore-postgres:
+	@echo "$(BLUE)🐘 PostgreSQL restore utility$(RESET)"
+	@./scripts/restore-db.sh
+
+db-test:
+	@echo "$(BLUE)🐘 Testing PostgreSQL connection...$(RESET)"
+	@./scripts/test-db.sh
+
+db-shell:
+	@echo "$(BLUE)🐘 Opening PostgreSQL shell...$(RESET)"
+	@docker exec -it transcendence_postgres_prod psql -U $${DB_USER:-transcendence} -d $${DB_NAME:-transcendence}
+
+db-logs:
+	@echo "$(BLUE)🐘 PostgreSQL logs:$(RESET)"
+	@docker logs transcendence_postgres_prod
 
 # ============================================================================
 # CLEANUP
