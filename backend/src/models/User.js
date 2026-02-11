@@ -164,15 +164,15 @@ export class User {
     return stmt.run(id);
   }
 
-  static getStats(userId) {
+  static async getStats(userId) {
     const stmt = db.prepare(`
       SELECT * FROM user_stats WHERE user_id = ?
     `);
-    return stmt.get(userId);
+    return await stmt.get(userId);
   }
 
-  static updateFarmStats(userId, { coins, alpacas, blob }) {
-    const stats = this.getStats(userId);
+  static async updateFarmStats(userId, { coins, alpacas, blob }) {
+    const stats = await this.getStats(userId);
     if (!stats) return null;
 
     const newCoins = coins !== undefined ? coins : stats.farm_coins;

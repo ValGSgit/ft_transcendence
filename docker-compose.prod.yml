@@ -22,6 +22,8 @@ services:
   backend:
     image: transcendence-backend:latest
     container_name: transcendence_backend_prod
+    env_file:
+      - .env.production
     ports:
       - "3000:3000"
     environment:
