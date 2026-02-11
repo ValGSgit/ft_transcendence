@@ -291,7 +291,6 @@
     </div>
 
     <!-- Hidden File Inputs -->
-    <input ref="fileInput" type="file" accept=".json" style="display:none" @change="onLoadFile" />
     <input ref="visitInput" type="file" accept=".json" style="display:none" @change="loadVisitFile" />
   </div>
 </template>
@@ -428,7 +427,10 @@ onMounted(async () => {
     if (!gameContainer.value) throw new Error("Game container missing")
     
     init3D()
-    
+
+    // Loading by default
+    loadGame()
+
     // Check if visiting someone
     if (route.query.visit) {
       // Load friend's farm from API
@@ -1042,33 +1044,33 @@ const saveGame = async () => {
     alpacas: alpacaList.map(a => ({ ...a }))
   }
 
+  // Create json file
+  const json = JSON.stringify(saveData, null, 2)//new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' })
+
   // Sync farm stats to backend
   try {
     await api.put('/users/me/farm-stats', {
       coins: score.value,
-      alpacas: alpacaList.length
+      alpacas: alpacaList.length,
+      blob: json
     })
     console.log('✅ Farm stats synced to server')
   } catch (error) {
     console.error('Failed to sync farm stats:', error)
   }
 
-  // Local save to file
-  const blob = new Blob([JSON.stringify(saveData, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${farmName.value.replace(/\s+/g, '_')}.json`
-  a.click()
-  URL.revokeObjectURL(url)
+  const response = await api.get('/users/me')
+  const stats = response.data.data.stats
 }
 
-const loadGame = () => {
+/* const loadGame = () => {
   fileInput.value?.click()
-}
+} */
 
-const onLoadFile = (event) => {
-  const file = event.target.files[0]
+const loadGame = async () => {
+  const response = await api.get('/users/me')
+  const stats = response.data.data.stats
+  const file = new Blob([stats.farm_blob], { type: 'application/json' })
   if (!file) return
 
   const reader = new FileReader()

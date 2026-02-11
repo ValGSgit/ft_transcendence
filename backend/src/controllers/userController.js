@@ -165,7 +165,7 @@ export const getCurrentUser = async (req, res) => {
 export const updateFarmStats = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { coins, alpacas } = req.body;
+    const { coins, alpacas, blob } = req.body;
 
     // Validate input
     if (coins !== undefined && (typeof coins !== 'number' || coins < 0)) {
@@ -175,8 +175,8 @@ export const updateFarmStats = async (req, res) => {
       return errorResponse(res, 'Invalid alpacas value', 400);
     }
 
-    const stats = User.updateFarmStats(userId, { coins, alpacas });
-
+    const stats = User.updateFarmStats(userId, { coins, alpacas ,blob });
+    
     if (!stats) {
       return errorResponse(res, 'Stats not found', 404);
     }
