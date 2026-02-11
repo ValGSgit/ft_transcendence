@@ -2,16 +2,17 @@ import db from '../config/database.js';
 import crypto from 'crypto';
 
 export class User {
-  static create({ username, email, password, avatar, bio }) {
+  static async create({ username, email, password, avatar, bio }) {
     const stmt = db.prepare(`
       INSERT INTO users (username, email, password, avatar, bio)
       VALUES (?, ?, ?, ?, ?)
     `);
-    const result = stmt.run(
+    const defaultAvatar = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="50" fill="%23667eea"/><text x="50" y="65" text-anchor="middle" fill="white" font-size="40">🦙</text></svg>';
+    const result = await stmt.run(
       username, 
       email, 
       password,
-      avatar || '/avatars/default.png',
+      avatar || defaultAvatar,
       bio || 'Hey there! I am using Transcendence'
     );
     
@@ -19,58 +20,58 @@ export class User {
     const statsStmt = db.prepare(`
       INSERT INTO user_stats (user_id) VALUES (?)
     `);
-    statsStmt.run(result.lastInsertRowid);
+    await statsStmt.run(result.lastInsertRowid);
     
-    return this.findById(result.lastInsertRowid);
+    return await this.findById(result.lastInsertRowid);
   }
 
-  static findById(id) {
+  static async findById(id) {
     const stmt = db.prepare(`
       SELECT id, username, email, avatar, bio, status, online, two_factor_enabled, last_seen, created_at, updated_at
       FROM users WHERE id = ?
     `);
-    return stmt.get(id);
+    return await stmt.get(id);
   }
 
-  static findByIdWithPassword(id) {
+  static async findByIdWithPassword(id) {
     const stmt = db.prepare(`
       SELECT * FROM users WHERE id = ?
     `);
-    return stmt.get(id);
+    return await stmt.get(id);
   }
 
-  static findByEmail(email) {
+  static async findByEmail(email) {
     const stmt = db.prepare(`
       SELECT * FROM users WHERE email = ?
     `);
-    return stmt.get(email);
+    return await stmt.get(email);
   }
 
-  static findByUsername(username) {
+  static async findByUsername(username) {
     const stmt = db.prepare(`
       SELECT * FROM users WHERE username = ?
     `);
-    return stmt.get(username);
+    return await stmt.get(username);
   }
 
-  static findByEmailOrUsername(identifier) {
+  static async findByEmailOrUsername(identifier) {
     const stmt = db.prepare(`
       SELECT * FROM users WHERE email = ? OR username = ?
     `);
-    return stmt.get(identifier, identifier);
+    return await stmt.get(identifier, identifier);
   }
 
-  static findAll(limit = 100, offset = 0) {
+  static async findAll(limit = 100, offset = 0) {
     const stmt = db.prepare(`
       SELECT id, username, email, avatar, bio, status, online, last_seen, created_at
       FROM users
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
     `);
-    return stmt.all(limit, offset);
+    return await stmt.all(limit, offset);
   }
 
-  static update(id, data) {
+  static async update(id, data) {
     const fields = [];
     const values = [];
 
@@ -107,7 +108,7 @@ export class User {
       values.push(data.two_factor_secret);
     }
 
-    if (fields.length === 0) return this.findById(id);
+    if (fields.length === 0) return await this.findById(id);
 
     fields.push('updated_at = CURRENT_TIMESTAMP');
     values.push(id);
@@ -117,36 +118,36 @@ export class User {
       SET ${fields.join(', ')}
       WHERE id = ?
     `);
-    stmt.run(...values);
-    return this.findById(id);
+    await stmt.run(...values);
+    return await this.findById(id);
   }
 
-  static setOnline(id, online) {
+  static async setOnline(id, online) {
     const stmt = db.prepare(`
       UPDATE users
       SET online = ?, last_seen = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
-    stmt.run(online ? 1 : 0, id);
+    await stmt.run(online ? 1 : 0, id);
   }
 
-  static enable2FA(id, secret) {
+  static async enable2FA(id, secret) {
     const stmt = db.prepare(`
       UPDATE users
       SET two_factor_enabled = 1, two_factor_secret = ?
       WHERE id = ?
     `);
-    stmt.run(secret, id);
-    return this.findById(id);
+    await stmt.run(secret, id);
+    return await this.findById(id);
   }
 
-  static disable2FA(id) {
+  static async disable2FA(id) {
     const stmt = db.prepare(`
       UPDATE users
       SET two_factor_enabled = 0, two_factor_secret = NULL
       WHERE id = ?
     `);
-    stmt.run(id);
+    await stmt.run(id);
     return this.findById(id);
   }
 
@@ -183,38 +184,38 @@ export class User {
       SET farm_coins = ?, farm_alpacas = ?, farm_blob = ?
       WHERE user_id = ?
     `);
-    stmt.run(newCoins, newAlpacas, blob, userId);
-    return this.getStats(userId);
+    await stmt.run(newCoins, newAlpacas, blob, userId);
+    return await this.getStats(userId);
   }
 
-  static incrementFarmVisits(userId) {
+  static async incrementFarmVisits(userId) {
     const stmt = db.prepare(`
       UPDATE user_stats
       SET farm_visits = farm_visits + 1
       WHERE user_id = ?
     `);
-    stmt.run(userId);
+    await stmt.run(userId);
   }
 
-  static search(query, limit = 20) {
+  static async search(query, limit = 20) {
     const stmt = db.prepare(`
       SELECT id, username, email, avatar, bio, status, online, last_seen
       FROM users
       WHERE username LIKE ? OR email LIKE ?
       LIMIT ?
     `);
-    return stmt.all(`%${query}%`, `%${query}%`, limit);
+    return await stmt.all(`%${query}%`, `%${query}%`, limit);
   }
 
   // Password Reset Methods
-  static generatePasswordResetToken(userId) {
+  static async generatePasswordResetToken(userId) {
     // Invalidate any existing tokens
     const invalidateStmt = db.prepare(`
       UPDATE password_reset_tokens
       SET used = 1
       WHERE user_id = ? AND used = 0
     `);
-    invalidateStmt.run(userId);
+    await invalidateStmt.run(userId);
 
     // Generate new token
     const token = crypto.randomBytes(32).toString('hex');
@@ -224,12 +225,12 @@ export class User {
       INSERT INTO password_reset_tokens (user_id, token, expires_at)
       VALUES (?, ?, ?)
     `);
-    stmt.run(userId, token, expiresAt);
+    await stmt.run(userId, token, expiresAt);
 
     return token;
   }
 
-  static verifyPasswordResetToken(token) {
+  static async verifyPasswordResetToken(token) {
     const stmt = db.prepare(`
       SELECT prt.*, u.email, u.username
       FROM password_reset_tokens prt
@@ -238,27 +239,27 @@ export class User {
         AND prt.used = 0 
         AND prt.expires_at > datetime('now')
     `);
-    const result = stmt.get(token);
+    const result = await stmt.get(token);
     
     if (result) {
       // Mark token as used
       const updateStmt = db.prepare(`
         UPDATE password_reset_tokens SET used = 1 WHERE id = ?
       `);
-      updateStmt.run(result.id);
+      await updateStmt.run(result.id);
       return { id: result.user_id, email: result.email, username: result.username };
     }
     return null;
   }
 
-  static updatePassword(userId, hashedPassword) {
+  static async updatePassword(userId, hashedPassword) {
     const stmt = db.prepare(`
       UPDATE users
       SET password = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
-    stmt.run(hashedPassword, userId);
-    return this.findById(userId);
+    await stmt.run(hashedPassword, userId);
+    return await this.findById(userId);
   }
 }
 

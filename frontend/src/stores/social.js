@@ -153,6 +153,7 @@ export const useSocialStore = defineStore('social', () => {
   async function deletePost(postId) {
     try {
       await api.delete(`/posts/${postId}`)
+      if (!Array.isArray(posts.value)) posts.value = []
       posts.value = posts.value.filter(p => p.id !== postId)
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to delete post'
@@ -223,8 +224,10 @@ export const useSocialStore = defineStore('social', () => {
     try {
       const response = await api.post(`/friends/requests/${requestId}/accept`)
       // Remove from requests, add to friends
+      if (!Array.isArray(friendRequests.value)) friendRequests.value = []
       friendRequests.value = friendRequests.value.filter(r => r.id !== requestId)
       if (response.data.friend) {
+        if (!Array.isArray(friends.value)) friends.value = []
         friends.value.push(response.data.friend)
       }
       return response.data
@@ -237,6 +240,7 @@ export const useSocialStore = defineStore('social', () => {
   async function declineFriendRequest(requestId) {
     try {
       await api.post(`/friends/requests/${requestId}/decline`)
+      if (!Array.isArray(friendRequests.value)) friendRequests.value = []
       friendRequests.value = friendRequests.value.filter(r => r.id !== requestId)
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to decline request'
@@ -247,6 +251,7 @@ export const useSocialStore = defineStore('social', () => {
   async function removeFriend(friendId) {
     try {
       await api.delete(`/friends/${friendId}`)
+      if (!Array.isArray(friends.value)) friends.value = []
       friends.value = friends.value.filter(f => f.id !== friendId)
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to remove friend'
@@ -257,6 +262,7 @@ export const useSocialStore = defineStore('social', () => {
   async function blockUser(userId) {
     try {
       await api.post('/friends/block', { userId })
+      if (!Array.isArray(friends.value)) friends.value = []
       friends.value = friends.value.filter(f => f.id !== userId)
     } catch (err) {
       error.value = err.response?.data?.message || 'Failed to block user'
@@ -293,7 +299,9 @@ export const useSocialStore = defineStore('social', () => {
   async function markAllNotificationsRead() {
     try {
       await api.post('/notifications/read-all')
-      notifications.value.forEach(n => n.read = true)
+      if (Array.isArray(notifications.value)) {
+        notifications.value.forEach(n => n.read = true)
+      }
     } catch (err) {
       console.error('Failed to mark all notifications as read:', err)
     }
@@ -314,6 +322,7 @@ export const useSocialStore = defineStore('social', () => {
 
   // Add notification (from socket)
   function addNotification(notification) {
+    if (!Array.isArray(notifications.value)) notifications.value = []
     notifications.value.unshift(notification)
   }
 

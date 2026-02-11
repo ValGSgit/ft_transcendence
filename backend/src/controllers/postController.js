@@ -4,10 +4,15 @@ import { successResponse, errorResponse } from '../utils/response.js';
 
 export const getPosts = async (req, res) => {
   try {
-    const { limit = 20, offset = 0 } = req.query;
+    const { limit = 20, page, offset } = req.query;
     const userId = req.user.id;
 
-    const posts = Post.getFeed(userId, ['public', 'friends'], parseInt(limit), parseInt(offset));
+    const finalLimit = parseInt(limit);
+    const finalOffset = offset !== undefined 
+      ? parseInt(offset) 
+      : ((parseInt(page) || 1) - 1) * finalLimit;
+
+    const posts = await Post.getFeed(userId, ['public', 'friends'], finalLimit, finalOffset);
 
     return successResponse(res, {
       posts,
@@ -22,10 +27,15 @@ export const getPosts = async (req, res) => {
 export const getUserPosts = async (req, res) => {
   try {
     const { userId } = req.params;
-    const { limit = 20, offset = 0 } = req.query;
+    const { limit = 20, page, offset } = req.query;
     const currentUserId = req.user.id;
 
-    const posts = Post.getUserPosts(parseInt(userId), currentUserId, parseInt(limit), parseInt(offset));
+    const finalLimit = parseInt(limit);
+    const finalOffset = offset !== undefined 
+      ? parseInt(offset) 
+      : ((parseInt(page) || 1) - 1) * finalLimit;
+
+    const posts = await Post.getUserPosts(parseInt(userId), currentUserId, finalLimit, finalOffset);
 
     return successResponse(res, {
       posts,
@@ -40,16 +50,21 @@ export const getUserPosts = async (req, res) => {
 export const getUserPostsByUsername = async (req, res) => {
   try {
     const { username } = req.params;
-    const { limit = 20, offset = 0 } = req.query;
+    const { limit = 20, page, offset } = req.query;
     const currentUserId = req.user.id;
 
     // Find user by username first
-    const user = User.findByUsername(username);
+    const user = await User.findByUsername(username);
     if (!user) {
       return errorResponse(res, 'User not found', 404);
     }
 
-    const posts = Post.getUserPosts(user.id, currentUserId, parseInt(limit), parseInt(offset));
+    const finalLimit = parseInt(limit);
+    const finalOffset = offset !== undefined 
+      ? parseInt(offset) 
+      : ((parseInt(page) || 1) - 1) * finalLimit;
+
+    const posts = await Post.getUserPosts(user.id, currentUserId, finalLimit, finalOffset);
 
     return successResponse(res, {
       posts,
@@ -74,7 +89,7 @@ export const createPost = async (req, res) => {
       return errorResponse(res, 'Post content too long (max 5000 characters)', 400);
     }
 
-    const post = Post.create({
+    const post = await Post.create({
       userId,
       content: content.trim(),
       type: type || 'text',
@@ -96,7 +111,7 @@ export const updatePost = async (req, res) => {
     const userId = req.user.id;
     const { content, visibility, image } = req.body;
 
-    const post = Post.findById(parseInt(postId));
+    const post = await Post.findById(parseInt(postId));
     if (!post) {
       return errorResponse(res, 'Post not found', 404);
     }
@@ -105,7 +120,7 @@ export const updatePost = async (req, res) => {
       return errorResponse(res, 'Unauthorized to update this post', 403);
     }
 
-    const updatedPost = Post.update(parseInt(postId), userId, {
+    const updatedPost = await Post.update(parseInt(postId), userId, {
       content,
       visibility,
       image
@@ -123,7 +138,7 @@ export const deletePost = async (req, res) => {
     const { postId } = req.params;
     const userId = req.user.id;
 
-    const post = Post.findById(parseInt(postId));
+    const post = await Post.findById(parseInt(postId));
     if (!post) {
       return errorResponse(res, 'Post not found', 404);
     }
@@ -132,7 +147,7 @@ export const deletePost = async (req, res) => {
       return errorResponse(res, 'Unauthorized to delete this post', 403);
     }
 
-    Post.delete(parseInt(postId), userId);
+    await Post.delete(parseInt(postId), userId);
 
     return successResponse(res, null, 'Post deleted successfully');
   } catch (error) {
@@ -146,12 +161,12 @@ export const likePost = async (req, res) => {
     const { postId } = req.params;
     const userId = req.user.id;
 
-    const post = Post.findById(parseInt(postId));
+    const post = await Post.findById(parseInt(postId));
     if (!post) {
       return errorResponse(res, 'Post not found', 404);
     }
 
-    const liked = Post.likePost(parseInt(postId), userId);
+    const liked = await Post.likePost(parseInt(postId), userId);
 
     return successResponse(res, { liked }, liked ? 'Post liked' : 'Already liked');
   } catch (error) {
@@ -165,7 +180,7 @@ export const unlikePost = async (req, res) => {
     const { postId } = req.params;
     const userId = req.user.id;
 
-    const unliked = Post.unlikePost(parseInt(postId), userId);
+    const unliked = await Post.unlikePost(parseInt(postId), userId);
 
     return successResponse(res, { unliked }, unliked ? 'Post unliked' : 'Not liked');
   } catch (error) {
@@ -177,14 +192,19 @@ export const unlikePost = async (req, res) => {
 export const getPostComments = async (req, res) => {
   try {
     const { postId } = req.params;
-    const { limit = 50, offset = 0 } = req.query;
+    const { limit = 50, page, offset } = req.query;
 
-    const post = Post.findById(parseInt(postId));
+    const post = await Post.findById(parseInt(postId));
     if (!post) {
       return errorResponse(res, 'Post not found', 404);
     }
 
-    const comments = Post.getComments(parseInt(postId), parseInt(limit), parseInt(offset));
+    const finalLimit = parseInt(limit);
+    const finalOffset = offset !== undefined 
+      ? parseInt(offset) 
+      : ((parseInt(page) || 1) - 1) * finalLimit;
+
+    const comments = await Post.getComments(parseInt(postId), finalLimit, finalOffset);
 
     return successResponse(res, {
       comments,
@@ -210,12 +230,12 @@ export const addComment = async (req, res) => {
       return errorResponse(res, 'Comment too long (max 1000 characters)', 400);
     }
 
-    const post = Post.findById(parseInt(postId));
+    const post = await Post.findById(parseInt(postId));
     if (!post) {
       return errorResponse(res, 'Post not found', 404);
     }
 
-    const comment = Post.addComment(parseInt(postId), userId, content.trim());
+    const comment = await Post.addComment(parseInt(postId), userId, content.trim());
 
     return successResponse(res, { comment }, 'Comment added successfully', 201);
   } catch (error) {
@@ -229,7 +249,7 @@ export const deleteComment = async (req, res) => {
     const { commentId } = req.params;
     const userId = req.user.id;
 
-    Post.deleteComment(parseInt(commentId), userId);
+    await Post.deleteComment(parseInt(commentId), userId);
 
     return successResponse(res, null, 'Comment deleted successfully');
   } catch (error) {

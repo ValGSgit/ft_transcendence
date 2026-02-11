@@ -4,13 +4,13 @@ import { successResponse, errorResponse } from '../utils/response.js';
 export const getUserNotifications = async (req, res) => {
   try {
     const { limit = 50, offset = 0 } = req.query;
-    const notifications = Notification.getUserNotifications(
+    const notifications = await Notification.getUserNotifications(
       req.user.id,
       parseInt(limit),
       parseInt(offset)
     );
 
-    const unreadCount = Notification.getUnreadCount(req.user.id);
+    const unreadCount = await Notification.getUnreadCount(req.user.id);
 
     return successResponse(res, {
       notifications,
@@ -26,7 +26,7 @@ export const getUserNotifications = async (req, res) => {
 export const markAsRead = async (req, res) => {
   try {
     const { notificationId } = req.params;
-    const notification = Notification.markAsRead(
+    const notification = await Notification.markAsRead(
       parseInt(notificationId),
       req.user.id
     );
@@ -44,7 +44,7 @@ export const markAsRead = async (req, res) => {
 
 export const markAllAsRead = async (req, res) => {
   try {
-    Notification.markAllAsRead(req.user.id);
+    await Notification.markAllAsRead(req.user.id);
     return successResponse(res, null, 'All notifications marked as read');
   } catch (error) {
     console.error('Mark all notifications as read error:', error);
@@ -55,7 +55,7 @@ export const markAllAsRead = async (req, res) => {
 export const deleteNotification = async (req, res) => {
   try {
     const { notificationId } = req.params;
-    Notification.delete(parseInt(notificationId), req.user.id);
+    await Notification.delete(parseInt(notificationId), req.user.id);
     return successResponse(res, null, 'Notification deleted');
   } catch (error) {
     console.error('Delete notification error:', error);
@@ -65,7 +65,7 @@ export const deleteNotification = async (req, res) => {
 
 export const deleteAllNotifications = async (req, res) => {
   try {
-    Notification.deleteAll(req.user.id);
+    await Notification.deleteAll(req.user.id);
     return successResponse(res, null, 'All notifications deleted');
   } catch (error) {
     console.error('Delete all notifications error:', error);

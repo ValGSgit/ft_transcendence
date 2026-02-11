@@ -1,12 +1,12 @@
 import db from '../config/database.js';
 
 export class Post {
-  static create({ userId, content, type = 'text', visibility = 'public', image = null, farmData = null }) {
+  static async create({ userId, content, type = 'text', visibility = 'public', image = null, farmData = null }) {
     const stmt = db.prepare(`
       INSERT INTO posts (user_id, content, type, visibility, image, farm_data)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
-    const result = stmt.run(
+    const result = await stmt.run(
       userId,
       content,
       type,
@@ -14,10 +14,10 @@ export class Post {
       image,
       farmData ? JSON.stringify(farmData) : null
     );
-    return this.findById(result.lastInsertRowid);
+    return await this.findById(result.lastInsertRowid);
   }
 
-  static findById(id) {
+  static async findById(id) {
     const stmt = db.prepare(`
       SELECT p.*, u.username, u.avatar,
              (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
@@ -26,14 +26,14 @@ export class Post {
       JOIN users u ON p.user_id = u.id
       WHERE p.id = ?
     `);
-    const post = stmt.get(id);
+    const post = await stmt.get(id);
     if (post && post.farm_data) {
       post.farm_data = JSON.parse(post.farm_data);
     }
     return post;
   }
 
-  static getFeed(userId, visibility = ['public', 'friends'], limit = 20, offset = 0) {
+  static async getFeed(userId, visibility = ['public', 'friends'], limit = 20, offset = 0) {
     // Get posts from user's friends and public posts
     const placeholders = visibility.map(() => '?').join(',');
     const stmt = db.prepare(`
@@ -46,17 +46,17 @@ export class Post {
       WHERE p.visibility IN (${placeholders})
         OR (p.visibility = 'friends' AND p.user_id IN (
           SELECT CASE
-            WHEN sender_id = ? THEN receiver_id
-            ELSE sender_id
+            WHEN user1_id = ? THEN user2_id
+            ELSE user1_id
           END
-          FROM friend_requests
-          WHERE status = 'accepted' AND (sender_id = ? OR receiver_id = ?)
+          FROM friends
+          WHERE user1_id = ? OR user2_id = ?
         ))
         OR p.user_id = ?
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
     `);
-    const posts = stmt.all(userId, ...visibility, userId, userId, userId, userId, limit, offset);
+    const posts = await stmt.all(userId, ...visibility, userId, userId, userId, userId, limit, offset);
     return posts.map(post => {
       if (post.farm_data) {
         post.farm_data = JSON.parse(post.farm_data);
@@ -67,7 +67,7 @@ export class Post {
     });
   }
 
-  static getUserPosts(profileUserId, currentUserId = null, limit = 20, offset = 0) {
+  static async getUserPosts(profileUserId, currentUserId = null, limit = 20, offset = 0) {
     const viewerId = currentUserId || profileUserId;
     const stmt = db.prepare(`
       SELECT p.*, u.username, u.avatar,
@@ -80,18 +80,17 @@ export class Post {
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
     `);
-    const posts = stmt.all(viewerId, profileUserId, limit, offset);
+    const posts = await stmt.all(viewerId, profileUserId, limit, offset);
     return posts.map(post => {
       if (post.farm_data) {
         post.farm_data = JSON.parse(post.farm_data);
       }
-      // Ensure user_liked is a boolean
       post.user_liked = !!post.user_liked;
       return post;
     });
   }
 
-  static update(id, userId, { content, visibility, image }) {
+  static async update(id, userId, { content, visibility, image }) {
     const fields = [];
     const values = [];
 
@@ -108,7 +107,7 @@ export class Post {
       values.push(image);
     }
 
-    if (fields.length === 0) return this.findById(id);
+    if (fields.length === 0) return await this.findById(id);
 
     fields.push('updated_at = CURRENT_TIMESTAMP');
     values.push(id, userId);
@@ -118,23 +117,23 @@ export class Post {
       SET ${fields.join(', ')}
       WHERE id = ? AND user_id = ?
     `);
-    stmt.run(...values);
-    return this.findById(id);
+    await stmt.run(...values);
+    return await this.findById(id);
   }
 
-  static delete(id, userId) {
+  static async delete(id, userId) {
     const stmt = db.prepare(`
       DELETE FROM posts WHERE id = ? AND user_id = ?
     `);
-    return stmt.run(id, userId);
+    return await stmt.run(id, userId);
   }
 
-  static likePost(postId, userId) {
+  static async likePost(postId, userId) {
     try {
       const stmt = db.prepare(`
         INSERT INTO post_likes (post_id, user_id) VALUES (?, ?)
       `);
-      stmt.run(postId, userId);
+      await stmt.run(postId, userId);
       return true;
     } catch (error) {
       // Already liked
@@ -142,19 +141,20 @@ export class Post {
     }
   }
 
-  static unlikePost(postId, userId) {
+  static async unlikePost(postId, userId) {
     const stmt = db.prepare(`
       DELETE FROM post_likes WHERE post_id = ? AND user_id = ?
     `);
-    return stmt.run(postId, userId).changes > 0;
+    const result = await stmt.run(postId, userId);
+    return result.changes > 0;
   }
 
-  static addComment(postId, userId, content) {
+  static async addComment(postId, userId, content) {
     const stmt = db.prepare(`
       INSERT INTO post_comments (post_id, user_id, content)
       VALUES (?, ?, ?)
     `);
-    const result = stmt.run(postId, userId, content);
+    const result = await stmt.run(postId, userId, content);
     
     // Get the comment with user info
     const commentStmt = db.prepare(`
@@ -163,10 +163,10 @@ export class Post {
       JOIN users u ON c.user_id = u.id
       WHERE c.id = ?
     `);
-    return commentStmt.get(result.lastInsertRowid);
+    return await commentStmt.get(result.lastInsertRowid);
   }
 
-  static getComments(postId, limit = 50, offset = 0) {
+  static async getComments(postId, limit = 50, offset = 0) {
     const stmt = db.prepare(`
       SELECT c.*, u.username, u.avatar
       FROM post_comments c
@@ -175,14 +175,14 @@ export class Post {
       ORDER BY c.created_at ASC
       LIMIT ? OFFSET ?
     `);
-    return stmt.all(postId, limit, offset);
+    return await stmt.all(postId, limit, offset);
   }
 
-  static deleteComment(commentId, userId) {
+  static async deleteComment(commentId, userId) {
     const stmt = db.prepare(`
       DELETE FROM post_comments WHERE id = ? AND user_id = ?
     `);
-    return stmt.run(commentId, userId);
+    return await stmt.run(commentId, userId);
   }
 }
 

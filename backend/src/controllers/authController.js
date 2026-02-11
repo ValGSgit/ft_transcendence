@@ -28,12 +28,12 @@ export const register = async (req, res) => {
     }
 
     // Check if user already exists
-    const existingEmail = User.findByEmail(email);
+    const existingEmail = await User.findByEmail(email);
     if (existingEmail) {
       return errorResponse(res, 'Email already registered', 409);
     }
 
-    const existingUsername = User.findByUsername(username);
+    const existingUsername = await User.findByUsername(username);
     if (existingUsername) {
       return errorResponse(res, 'Username already taken', 409);
     }
@@ -42,7 +42,7 @@ export const register = async (req, res) => {
     const hashedPassword = await hashPassword(password);
 
     // Create user
-    const user = User.create({
+    const user = await User.create({
       username,
       email,
       password: hashedPassword,
@@ -74,7 +74,7 @@ export const login = async (req, res) => {
     }
 
     // Find user by email OR username
-    const user = User.findByEmailOrUsername(email);
+    const user = await User.findByEmailOrUsername(email);
     if (!user) {
       return errorResponse(res, 'Invalid credentials', 401);
     }
@@ -108,10 +108,10 @@ export const login = async (req, res) => {
     }
 
     // Update online status
-    User.setOnline(user.id, true);
+    await User.setOnline(user.id, true);
 
     // Get fresh user data after setting online
-    const updatedUser = User.findById(user.id);
+    const updatedUser = await User.findById(user.id);
 
     // Generate tokens
     const token = generateToken({ id: user.id, username: user.username });
@@ -135,7 +135,7 @@ export const logout = async (req, res) => {
     const userId = req.user.id;
     
     // Update offline status
-    User.setOnline(userId, false);
+    await User.setOnline(userId, false);
 
     return successResponse(res, null, 'Logout successful');
   } catch (error) {
@@ -157,7 +157,7 @@ export const refreshToken = async (req, res) => {
       return errorResponse(res, 'Invalid refresh token', 401);
     }
 
-    const user = User.findById(decoded.id);
+    const user = await User.findById(decoded.id);
     if (!user) {
       return errorResponse(res, 'User not found', 404);
     }
@@ -178,8 +178,8 @@ export const refreshToken = async (req, res) => {
 
 export const getMe = async (req, res) => {
   try {
-    const user = User.findById(req.user.id);
-    const stats = User.getStats(req.user.id);
+    const user = await User.findById(req.user.id);
+    const stats = await User.getStats(req.user.id);
 
     return successResponse(res, {
       user: sanitizeUser(user),
@@ -195,7 +195,7 @@ export const getMe = async (req, res) => {
 export const setup2FA = async (req, res) => {
   try {
     const userId = req.user.id;
-    const user = User.findById(userId);
+    const user = await User.findById(userId);
 
     if (user.two_factor_enabled) {
       return errorResponse(res, '2FA is already enabled', 400);
@@ -208,7 +208,7 @@ export const setup2FA = async (req, res) => {
     });
 
     // Store secret temporarily (not enabled yet)
-    User.update(userId, { two_factor_secret: secret.base32 });
+    await User.update(userId, { two_factor_secret: secret.base32 });
 
     // Generate QR code
     const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
@@ -234,7 +234,7 @@ export const verify2FA = async (req, res) => {
       return errorResponse(res, 'TOTP code is required', 400);
     }
 
-    const secret = User.get2FASecret(userId);
+    const secret = await User.get2FASecret(userId);
     if (!secret) {
       return errorResponse(res, 'Please setup 2FA first', 400);
     }
@@ -252,7 +252,7 @@ export const verify2FA = async (req, res) => {
     }
 
     // Enable 2FA
-    const updatedUser = User.enable2FA(userId, secret);
+    const updatedUser = await User.enable2FA(userId, secret);
 
     return successResponse(res, {
       user: sanitizeUser(updatedUser)
@@ -273,7 +273,7 @@ export const disable2FA = async (req, res) => {
       return errorResponse(res, 'Password and TOTP code are required', 400);
     }
 
-    const user = User.findByIdWithPassword(userId);
+    const user = await User.findByIdWithPassword(userId);
     
     // Verify password
     const isValidPassword = await comparePassword(password, user.password);
@@ -294,7 +294,7 @@ export const disable2FA = async (req, res) => {
     }
 
     // Disable 2FA
-    const updatedUser = User.disable2FA(userId);
+    const updatedUser = await User.disable2FA(userId);
 
     return successResponse(res, {
       user: sanitizeUser(updatedUser)
@@ -314,7 +314,7 @@ export const forgotPassword = async (req, res) => {
       return errorResponse(res, 'Email is required', 400);
     }
 
-    const user = User.findByEmail(email);
+    const user = await User.findByEmail(email);
     if (!user) {
       // Don't reveal if email exists for security
       return successResponse(res, { 
@@ -323,7 +323,7 @@ export const forgotPassword = async (req, res) => {
     }
 
     // Generate a reset token (valid for 1 hour)
-    const resetToken = User.generatePasswordResetToken(user.id);
+    const resetToken = await User.generatePasswordResetToken(user.id);
 
     // In production, this would be sent via email
     // For now, return it in the response (for Postman testing)
@@ -356,7 +356,7 @@ export const resetPassword = async (req, res) => {
     }
 
     // Verify token and get user
-    const user = User.verifyPasswordResetToken(token);
+    const user = await User.verifyPasswordResetToken(token);
     if (!user) {
       return errorResponse(res, 'Invalid or expired reset token', 400);
     }
@@ -365,7 +365,7 @@ export const resetPassword = async (req, res) => {
     const hashedPassword = await hashPassword(newPassword);
 
     // Update password and clear reset token
-    User.updatePassword(user.id, hashedPassword);
+    await User.updatePassword(user.id, hashedPassword);
 
     console.log(`Password reset successful for user ${user.email}`);
 

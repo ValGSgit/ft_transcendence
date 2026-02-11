@@ -357,10 +357,10 @@ const hasPendingRequest = computed(() =>
 )
 
 const filteredFriends = computed(() => {
-  if (!friendSearch.value) return friends.value
+  if (!friendSearch.value) return friends.value || []
   const search = friendSearch.value.toLowerCase()
-  return friends.value.filter(f => 
-    f.username.toLowerCase().includes(search)
+  return (friends.value || []).filter(f => 
+    f.username?.toLowerCase().includes(search)
   )
 })
 

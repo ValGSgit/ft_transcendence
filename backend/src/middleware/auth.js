@@ -18,7 +18,7 @@ export const authenticate = async (req, res, next) => {
     }
 
     // Get user from database
-    const user = User.findById(decoded.id);
+    const user = await User.findById(decoded.id);
     
     if (!user) {
       return errorResponse(res, 'User not found', 401);
@@ -42,7 +42,7 @@ export const optionalAuth = async (req, res, next) => {
       const decoded = verifyToken(token);
 
       if (decoded) {
-        const user = User.findById(decoded.id);
+        const user = await User.findById(decoded.id);
         if (user) {
           req.user = user;
         }

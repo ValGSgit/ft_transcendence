@@ -6,7 +6,7 @@ import { hashPassword } from '../utils/auth.js';
 export const getAllUsers = async (req, res) => {
   try {
     const { limit = 100, offset = 0 } = req.query;
-    const users = User.findAll(parseInt(limit), parseInt(offset));
+    const users = await User.findAll(parseInt(limit), parseInt(offset));
 
     return successResponse(res, {
       users: users.map(sanitizeUser),
@@ -21,13 +21,13 @@ export const getAllUsers = async (req, res) => {
 export const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    const user = User.findById(parseInt(id));
+    const user = await User.findById(parseInt(id));
 
     if (!user) {
       return errorResponse(res, 'User not found', 404);
     }
 
-    const stats = User.getStats(parseInt(id));
+    const stats = await User.getStats(parseInt(id));
 
     return successResponse(res, {
       user: sanitizeUser(user),
@@ -42,13 +42,13 @@ export const getUserById = async (req, res) => {
 export const getUserByUsername = async (req, res) => {
   try {
     const { username } = req.params;
-    const user = User.findByUsername(username);
+    const user = await User.findByUsername(username);
 
     if (!user) {
       return errorResponse(res, 'User not found', 404);
     }
 
-    const stats = User.getStats(user.id);
+    const stats = await User.getStats(user.id);
 
     return successResponse(res, {
       user: sanitizeUser(user),
@@ -70,7 +70,7 @@ export const updateProfile = async (req, res) => {
 
     if (username) {
       // Check if username is already taken
-      const existing = User.findByUsername(username);
+      const existing = await User.findByUsername(username);
       if (existing && existing.id !== userId) {
         return errorResponse(res, 'Username already taken', 409);
       }
@@ -79,7 +79,7 @@ export const updateProfile = async (req, res) => {
 
     if (email) {
       // Check if email is already taken
-      const existing = User.findByEmail(email);
+      const existing = await User.findByEmail(email);
       if (existing && existing.id !== userId) {
         return errorResponse(res, 'Email already registered', 409);
       }
@@ -94,7 +94,7 @@ export const updateProfile = async (req, res) => {
       updateData.password = await hashPassword(password);
     }
 
-    const updatedUser = User.update(userId, updateData);
+    const updatedUser = await User.update(userId, updateData);
 
     return successResponse(res, {
       user: sanitizeUser(updatedUser),
@@ -113,7 +113,7 @@ export const searchUsers = async (req, res) => {
       return errorResponse(res, 'Search query must be at least 2 characters', 400);
     }
 
-    const users = User.search(q);
+    const users = await User.search(q);
 
     return successResponse(res, {
       users: users.map(sanitizeUser),
@@ -128,7 +128,7 @@ export const searchUsers = async (req, res) => {
 export const getUserStats = async (req, res) => {
   try {
     const { id } = req.params;
-    const stats = User.getStats(parseInt(id));
+    const stats = await User.getStats(parseInt(id));
 
     if (!stats) {
       return errorResponse(res, 'Stats not found', 404);
@@ -144,13 +144,13 @@ export const getUserStats = async (req, res) => {
 export const getCurrentUser = async (req, res) => {
   try {
     const userId = req.user.id;
-    const user = User.findById(userId);
+    const user = await User.findById(userId);
 
     if (!user) {
       return errorResponse(res, 'User not found', 404);
     }
 
-    const stats = User.getStats(userId);
+    const stats = await User.getStats(userId);
 
     return successResponse(res, {
       user: sanitizeUser(user),
@@ -175,7 +175,7 @@ export const updateFarmStats = async (req, res) => {
       return errorResponse(res, 'Invalid alpacas value', 400);
     }
 
-    const stats = User.updateFarmStats(userId, { coins, alpacas ,blob });
+    const stats = await User.updateFarmStats(userId, { coins, alpacas ,blob });
     
     if (!stats) {
       return errorResponse(res, 'Stats not found', 404);

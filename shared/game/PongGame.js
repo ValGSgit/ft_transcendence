@@ -18,8 +18,41 @@ export class PongGame {
     this.init();
   }
 
-  init() {
-    // Scene setup (now synchronous with static import)
+  // init() {
+  //   // Scene setup (now synchronous with static import)
+    
+  //   // Scene setup
+  //   this.scene = new THREE.Scene();
+  //   this.scene.background = new THREE.Color(0x000033);
+    
+  //   // Camera setup
+  //   this.camera = new THREE.PerspectiveCamera(
+  //     75,
+  //     this.container.clientWidth / this.container.clientHeight,
+  //     0.1,
+  //     1000
+  //   );
+  //   this.camera.position.z = 5;
+    
+  //   // Renderer setup
+  //   this.renderer = new THREE.WebGLRenderer({ antialias: true });
+  //   this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+  //   this.container.appendChild(this.renderer.domElement);
+    
+  //   // Create game objects
+  //   this.createPaddles(THREE);
+  //   this.createBall(THREE);
+  //   this.createField(THREE);
+    
+  //   // Start animation
+  //   this.animationId = 1; // Initialize to enable animation
+  //   this.animate();
+  // }
+   init() {
+    // Check WebGL support
+    if (!this.checkWebGLSupport()) {
+      throw new Error('WebGL is not supported on this browser/device. Please try Firefox or enable hardware acceleration in Chrome.');
+    }
     
     // Scene setup
     this.scene = new THREE.Scene();
@@ -34,10 +67,22 @@ export class PongGame {
     );
     this.camera.position.z = 5;
     
-    // Renderer setup
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
-    this.container.appendChild(this.renderer.domElement);
+    // Renderer setup with error handling
+    try {
+      this.renderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        alpha: true,
+        // Fallback options for problematic systems
+        context: this.createWebGL1Context(),
+        powerPreference: 'high-performance',
+        failIfMajorPerformanceCaveat: false // Allow software rendering as fallback
+      });
+      this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+      this.container.appendChild(this.renderer.domElement);
+    } catch (error) {
+      console.error('WebGL initialization failed:', error);
+      throw new Error('Failed to initialize 3D graphics. Your system may not support WebGL or hardware acceleration is disabled.');
+    }
     
     // Create game objects
     this.createPaddles(THREE);
@@ -45,8 +90,34 @@ export class PongGame {
     this.createField(THREE);
     
     // Start animation
-    this.animationId = 1; // Initialize to enable animation
+    this.animationId = 1;
     this.animate();
+  }
+
+  checkWebGLSupport() {
+    try {
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      return !!gl;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  createWebGL1Context() {
+    const canvas = document.createElement('canvas');
+    const contextAttributes = {
+      alpha: true,
+      antialias: true,
+      depth: true,
+      stencil: false,
+      powerPreference: 'high-performance',
+      failIfMajorPerformanceCaveat: false
+    };
+    
+    // Try WebGL1 only (skip WebGL2)
+    return canvas.getContext('webgl', contextAttributes) || 
+           canvas.getContext('experimental-webgl', contextAttributes);
   }
 
   createPaddles(THREE) {

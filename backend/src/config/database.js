@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+// Database configuration - chooses between SQLite (dev) and PostgreSQL (prod)
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
@@ -6,44 +6,61 @@ import { existsSync, mkdirSync } from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Determine database path
-const dataDir = process.env.DATABASE_PATH 
-  ? dirname(process.env.DATABASE_PATH)
-  : join(__dirname, '../../data');
+const USE_POSTGRES = process.env.DB_TYPE === 'postgres' || process.env.NODE_ENV === 'production';
 
-// Create data directory if it doesn't exist
-if (!existsSync(dataDir)) {
-  mkdirSync(dataDir, { recursive: true });
-}
+let db;
+let initDatabase;
 
-const dbPath = process.env.DATABASE_PATH || join(dataDir, 'transcendence.db');
+if (USE_POSTGRES) {
+  // Use PostgreSQL for production
+  const pgModule = await import('./database.pg.js');
+  db = pgModule.default;
+  initDatabase = pgModule.initDatabase;
+  console.log('🐘 Using PostgreSQL database');
+} else {
+  // Use SQLite for development
+  const Database = (await import('better-sqlite3')).default;
+  
+  // Determine database path
+  const dataDir = process.env.DATABASE_PATH 
+    ? dirname(process.env.DATABASE_PATH)
+    : join(__dirname, '../../data');
 
-// Use file-based database for persistence
-const db = new Database(dbPath);
+  // Create data directory if it doesn't exist
+  if (!existsSync(dataDir)) {
+    mkdirSync(dataDir, { recursive: true });
+  }
 
-// Enable foreign keys
-db.pragma('foreign_keys = ON');
+  const dbPath = process.env.DATABASE_PATH || join(dataDir, 'transcendence.db');
 
-// Create tables
-const initDatabase = () => {
-  // Users table with 2FA support
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      email TEXT UNIQUE NOT NULL,
-      password TEXT NOT NULL,
-      avatar TEXT DEFAULT '/avatars/default.png',
-      bio TEXT DEFAULT '',
-      status TEXT DEFAULT 'Hey there! I am using Transcendence',
-      online BOOLEAN DEFAULT 0,
-      two_factor_enabled BOOLEAN DEFAULT 0,
-      two_factor_secret TEXT,
-      last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+  // Use file-based database for persistence
+  db = new Database(dbPath);
+
+  // Enable foreign keys
+  db.pragma('foreign_keys = ON');
+
+  console.log('💾 Using SQLite database:', dbPath);
+
+  // SQLite initialization function
+  initDatabase = () => {
+    // Users table with 2FA support
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        avatar TEXT DEFAULT '/avatars/default.png',
+        bio TEXT DEFAULT '',
+        status TEXT DEFAULT 'Hey there! I am using Transcendence',
+        online BOOLEAN DEFAULT 0,
+        two_factor_enabled BOOLEAN DEFAULT 0,
+        two_factor_secret TEXT,
+        last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
 
   // Friend requests table
   db.exec(`
@@ -263,10 +280,47 @@ columns.forEach(query => {
     )
   `);
 
-  console.log('✅ Database initialized successfully');
-};
+  // Create indexes for better query performance
+  try {
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_room_id ON messages(room_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_games_status ON games(status)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_friend_requests_receiver ON friend_requests(receiver_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_friend_requests_sender ON friend_requests(sender_id)`);
+  } catch (e) {
+    // Indexes may already exist
+  }
+
+    console.log('✅ SQLite database initialized successfully');
+  };
+}
 
 // Initialize database
-initDatabase();
+const initResult = initDatabase();
+if (initResult && typeof initResult.then === 'function') {
+  // PostgreSQL returns a promise
+  await initResult;
+}
 
+// Add unified runTransaction method for SQLite
+if (!USE_POSTGRES && db && !db.runTransaction) {
+  db.runTransaction = async (callback) => {
+    // For SQLite, use manual BEGIN/COMMIT so we can await async callbacks
+    // This allows the same async model code to work with both SQLite and PG
+    db.exec('BEGIN');
+    try {
+      const result = await callback();
+      db.exec('COMMIT');
+      return result;
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
+  };
+}
+
+export { initDatabase };
 export default db;

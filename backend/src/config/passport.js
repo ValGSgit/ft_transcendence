@@ -28,13 +28,13 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           console.log('Google OAuth callback for:', profile.emails?.[0]?.value);
           
           // Check if user exists by email
-          let user = User.findByEmail(profile.emails[0].value);
+          let user = await User.findByEmail(profile.emails[0].value);
 
           if (!user) {
             // Create new user from Google profile
             const username = profile.emails[0].value.split('@')[0] + '_' + Math.random().toString(36).substring(7);
             const hashedPwd = await hashPassword('oauth_' + Math.random().toString(36));
-            user = User.create({
+            user = await User.create({
               username,
               email: profile.emails[0].value,
               password: hashedPwd,
@@ -77,17 +77,17 @@ if (process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET) {
           const email = profile.emails?.[0]?.value || `${profile.username}@github.local`;
 
           // Check if user exists by email or username
-          let user = User.findByEmail(email);
+          let user = await User.findByEmail(email);
 
           if (!user && profile.username) {
-            user = User.findByUsername(profile.username);
+            user = await User.findByUsername(profile.username);
           }
 
           if (!user) {
             // Create new user from GitHub profile
             const username = profile.username || `github_${Math.random().toString(36).substring(7)}`;
             const hashedPwd = await hashPassword('oauth_' + Math.random().toString(36));
-            user = User.create({
+            user = await User.create({
               username,
               email,
               password: hashedPwd,
@@ -115,8 +115,8 @@ passport.serializeUser((user, done) => {
   done(null, user.id);
 });
 
-passport.deserializeUser((id, done) => {
-  const user = User.findById(id);
+passport.deserializeUser(async (id, done) => {
+  const user = await User.findById(id);
   done(null, user);
 });
 

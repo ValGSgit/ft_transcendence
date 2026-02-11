@@ -63,7 +63,13 @@ export const useAuthStore = defineStore('auth', () => {
       socketService.connect(token.value)
       return response.data
     } catch (err) {
-      error.value = err.response?.data?.message || err.message || 'Registration failed'
+      // Handle 409 Conflict (user already exists)
+      if (err.response?.status === 409) {
+        error.value = err.response?.data?.message || 'User already exists. Please use a different email or username.'
+      } else {
+        error.value = err.response?.data?.message || err.message || 'Registration failed'
+      }
+      console.error('Registration error:', err)
       throw err
     } finally {
       loading.value = false
