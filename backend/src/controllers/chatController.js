@@ -3,7 +3,7 @@ import { successResponse, errorResponse } from '../utils/response.js';
 
 export const getUserRooms = async (req, res) => {
   try {
-    const rooms = Chat.getUserRooms(req.user.id);
+    const rooms = await Chat.getUserRooms(req.user.id);
     return successResponse(res, { rooms, count: rooms.length });
   } catch (error) {
     console.error('Get rooms error:', error);
@@ -19,17 +19,17 @@ export const createRoom = async (req, res) => {
       return errorResponse(res, 'Room name is required', 400);
     }
 
-    const room = Chat.createRoom(name, type, req.user.id);
+    const room = await Chat.createRoom(name, type, req.user.id);
 
     // Add creator as member
-    Chat.addMember(room.id, req.user.id);
+    await Chat.addMember(room.id, req.user.id);
 
     // Add other members
-    members.forEach(memberId => {
+    for (const memberId of members) {
       if (memberId !== req.user.id) {
-        Chat.addMember(room.id, parseInt(memberId));
+        await Chat.addMember(room.id, parseInt(memberId));
       }
-    });
+    }
 
     return successResponse(res, { room }, 'Room created', 201);
   } catch (error) {
@@ -41,12 +41,18 @@ export const createRoom = async (req, res) => {
 export const getRoomMessages = async (req, res) => {
   try {
     const { roomId } = req.params;
-    const { limit = 50, offset = 0 } = req.query;
+    const { limit = 50, page, offset } = req.query;
 
-    const messages = Chat.getRoomMessages(
+    // Support both page and offset parameters
+    const finalLimit = parseInt(limit);
+    const finalOffset = offset !== undefined 
+      ? parseInt(offset) 
+      : ((parseInt(page) || 1) - 1) * finalLimit;
+
+    const messages = await Chat.getRoomMessages(
       parseInt(roomId),
-      parseInt(limit),
-      parseInt(offset)
+      finalLimit,
+      finalOffset
     );
 
     return successResponse(res, { messages, count: messages.length });
@@ -73,7 +79,7 @@ export const sendMessage = async (req, res) => {
       return errorResponse(res, `Message exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters`, 400);
     }
 
-    const message = Chat.createMessage(
+    const message = await Chat.createMessage(
       parseInt(roomId),
       req.user.id,
       trimmedContent
@@ -94,7 +100,7 @@ export const getOrCreateDirectRoom = async (req, res) => {
       return errorResponse(res, 'Cannot create direct room with yourself', 400);
     }
 
-    const room = Chat.getOrCreateDirectRoom(req.user.id, parseInt(userId));
+    const room = await Chat.getOrCreateDirectRoom(req.user.id, parseInt(userId));
 
     return successResponse(res, { room });
   } catch (error) {
@@ -106,7 +112,7 @@ export const getOrCreateDirectRoom = async (req, res) => {
 export const getRoomMembers = async (req, res) => {
   try {
     const { roomId } = req.params;
-    const members = Chat.getRoomMembers(parseInt(roomId));
+    const members = await Chat.getRoomMembers(parseInt(roomId));
 
     return successResponse(res, { members, count: members.length });
   } catch (error) {
@@ -124,7 +130,7 @@ export const addRoomMember = async (req, res) => {
       return errorResponse(res, 'User ID is required', 400);
     }
 
-    Chat.addMember(parseInt(roomId), parseInt(userId));
+    await Chat.addMember(parseInt(roomId), parseInt(userId));
     return successResponse(res, null, 'Member added');
   } catch (error) {
     console.error('Add member error:', error);
@@ -135,7 +141,7 @@ export const addRoomMember = async (req, res) => {
 export const removeRoomMember = async (req, res) => {
   try {
     const { roomId, userId } = req.params;
-    Chat.removeMember(parseInt(roomId), parseInt(userId));
+    await Chat.removeMember(parseInt(roomId), parseInt(userId));
     return successResponse(res, null, 'Member removed');
   } catch (error) {
     console.error('Remove member error:', error);
@@ -151,7 +157,7 @@ export const searchMessages = async (req, res) => {
       return errorResponse(res, 'Search query must be at least 2 characters', 400);
     }
 
-    const messages = Chat.searchMessages(q, req.user.id, parseInt(limit));
+    const messages = await Chat.searchMessages(q, req.user.id, parseInt(limit));
     return successResponse(res, { messages, count: messages.length });
   } catch (error) {
     console.error('Search messages error:', error);

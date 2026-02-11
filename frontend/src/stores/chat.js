@@ -200,7 +200,9 @@ export const useChatStore = defineStore('chat', () => {
         typing.value[conversationId].push(userId)
       }
     } else {
-      typing.value[conversationId] = typing.value[conversationId].filter(id => id !== userId)
+      if (Array.isArray(typing.value[conversationId])) {
+        typing.value[conversationId] = typing.value[conversationId].filter(id => id !== userId)
+      }
     }
   }
 

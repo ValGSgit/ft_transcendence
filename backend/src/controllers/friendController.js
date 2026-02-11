@@ -16,14 +16,14 @@ export const sendFriendRequest = async (req, res) => {
     }
 
     // Check if users are blocked
-    if (Friend.isBlocked(senderId, parseInt(receiverId))) {
+    if (await Friend.isBlocked(senderId, parseInt(receiverId))) {
       return errorResponse(res, 'Cannot send friend request', 403);
     }
 
-    const request = Friend.sendRequest(senderId, parseInt(receiverId));
+    const request = await Friend.sendRequest(senderId, parseInt(receiverId));
 
     // Create notification
-    Notification.create(
+    await Notification.create(
       parseInt(receiverId),
       'friend_request',
       'New Friend Request',
@@ -40,7 +40,7 @@ export const sendFriendRequest = async (req, res) => {
 
 export const getPendingRequests = async (req, res) => {
   try {
-    const requests = Friend.getPendingRequests(req.user.id);
+    const requests = await Friend.getPendingRequests(req.user.id);
     return successResponse(res, { requests, count: requests.length });
   } catch (error) {
     console.error('Get pending requests error:', error);
@@ -50,7 +50,7 @@ export const getPendingRequests = async (req, res) => {
 
 export const getSentRequests = async (req, res) => {
   try {
-    const requests = Friend.getSentRequests(req.user.id);
+    const requests = await Friend.getSentRequests(req.user.id);
     return successResponse(res, { requests, count: requests.length });
   } catch (error) {
     console.error('Get sent requests error:', error);
@@ -61,7 +61,7 @@ export const getSentRequests = async (req, res) => {
 export const getSuggestions = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
-    const suggestions = Friend.getSuggestions(req.user.id, limit);
+    const suggestions = await Friend.getSuggestions(req.user.id, limit);
     return successResponse(res, { suggestions, count: suggestions.length });
   } catch (error) {
     console.error('Get suggestions error:', error);
@@ -72,10 +72,10 @@ export const getSuggestions = async (req, res) => {
 export const acceptFriendRequest = async (req, res) => {
   try {
     const { requestId } = req.params;
-    const request = Friend.acceptRequest(parseInt(requestId), req.user.id);
+    const request = await Friend.acceptRequest(parseInt(requestId), req.user.id);
 
     // Create notification for sender
-    Notification.create(
+    await Notification.create(
       request.sender_id,
       'friend_request',
       'Friend Request Accepted',
@@ -93,7 +93,7 @@ export const acceptFriendRequest = async (req, res) => {
 export const declineFriendRequest = async (req, res) => {
   try {
     const { requestId } = req.params;
-    const request = Friend.declineRequest(parseInt(requestId), req.user.id);
+    const request = await Friend.declineRequest(parseInt(requestId), req.user.id);
 
     return successResponse(res, { request }, 'Friend request declined');
   } catch (error) {
@@ -104,7 +104,7 @@ export const declineFriendRequest = async (req, res) => {
 
 export const getFriends = async (req, res) => {
   try {
-    const friends = Friend.getFriends(req.user.id);
+    const friends = await Friend.getFriends(req.user.id);
     return successResponse(res, { friends, count: friends.length });
   } catch (error) {
     console.error('Get friends error:', error);
@@ -115,7 +115,7 @@ export const getFriends = async (req, res) => {
 export const getUserFriends = async (req, res) => {
   try {
     const { id } = req.params;
-    const friends = Friend.getFriends(parseInt(id));
+    const friends = await Friend.getFriends(parseInt(id));
     return successResponse(res, { friends, count: friends.length });
   } catch (error) {
     console.error('Get user friends error:', error);
@@ -126,7 +126,7 @@ export const getUserFriends = async (req, res) => {
 export const unfriend = async (req, res) => {
   try {
     const { friendId } = req.params;
-    Friend.unfriend(req.user.id, parseInt(friendId));
+    await Friend.unfriend(req.user.id, parseInt(friendId));
     return successResponse(res, null, 'Friend removed');
   } catch (error) {
     console.error('Unfriend error:', error);
@@ -142,7 +142,7 @@ export const blockUser = async (req, res) => {
       return errorResponse(res, 'User ID is required', 400);
     }
 
-    Friend.blockUser(req.user.id, parseInt(userId));
+    await Friend.blockUser(req.user.id, parseInt(userId));
     return successResponse(res, null, 'User blocked');
   } catch (error) {
     console.error('Block user error:', error);
@@ -153,7 +153,7 @@ export const blockUser = async (req, res) => {
 export const unblockUser = async (req, res) => {
   try {
     const { userId } = req.params;
-    Friend.unblockUser(req.user.id, parseInt(userId));
+    await Friend.unblockUser(req.user.id, parseInt(userId));
     return successResponse(res, null, 'User unblocked');
   } catch (error) {
     console.error('Unblock user error:', error);
@@ -163,7 +163,7 @@ export const unblockUser = async (req, res) => {
 
 export const getBlockedUsers = async (req, res) => {
   try {
-    const blocked = Friend.getBlockedUsers(req.user.id);
+    const blocked = await Friend.getBlockedUsers(req.user.id);
     return successResponse(res, { blocked, count: blocked.length });
   } catch (error) {
     console.error('Get blocked users error:', error);

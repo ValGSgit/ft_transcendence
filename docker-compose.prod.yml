@@ -1,4 +1,24 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: transcendence_postgres_prod
+    environment:
+      POSTGRES_DB: ${DB_NAME:-transcendence}
+      POSTGRES_USER: ${DB_USER:-transcendence}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-transcendence_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - transcendence_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-transcendence}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   backend:
     image: transcendence-backend:latest
     container_name: transcendence_backend_prod
@@ -7,19 +27,25 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - DB_TYPE=postgres
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-transcendence}
+      - DB_USER=${DB_USER:-transcendence}
+      - DB_PASSWORD=${DB_PASSWORD:-transcendence_password}
       - JWT_SECRET=${JWT_SECRET:-CHANGE_THIS_IN_PRODUCTION}
-      - DATABASE_PATH=/app/data/transcendence.db
-      - CORS_ORIGINS=http://localhost,http://127.0.0.1,http://localhost:80
-      - FRONTEND_URL=http://localhost
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost,http://127.0.0.1,http://localhost:80}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
       # OAuth credentials - set these in your environment or .env file
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
-      - GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL:-http://localhost:3000/api/auth/google/callback}
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
       - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
-      - GITHUB_CALLBACK_URL=http://localhost:3000/api/auth/github/callback
-    volumes:
-      - backend_data:/app/data
+      - GITHUB_CALLBACK_URL=${GITHUB_CALLBACK_URL:-http://localhost:3000/api/auth/github/callback}
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - transcendence_network
@@ -52,7 +78,7 @@ services:
       start_period: 10s
 
 volumes:
-  backend_data:
+  postgres_data:
     driver: local
 
 networks:

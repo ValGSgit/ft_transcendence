@@ -37,7 +37,7 @@ export const initializeSocket = (httpServer) => {
         return next(new Error('Invalid token'));
       }
 
-      const user = User.findById(decoded.id);
+      const user = await User.findById(decoded.id);
       if (!user) {
         return next(new Error('User not found'));
       }
@@ -57,7 +57,7 @@ export const initializeSocket = (httpServer) => {
     userSockets.set(socket.userId, socket.id);
     
     // Update user online status
-    User.setOnline(socket.userId, true);
+    await User.setOnline(socket.userId, true);
     
     // Broadcast user online status
     socket.broadcast.emit('user:online', {
@@ -88,7 +88,7 @@ export const initializeSocket = (httpServer) => {
       userSockets.delete(socket.userId);
       
       // Update user offline status
-      User.setOnline(socket.userId, false);
+      await User.setOnline(socket.userId, false);
       
       // Broadcast user offline status
       socket.broadcast.emit('user:offline', {
@@ -138,7 +138,7 @@ const handleGameEvents = (socket, io) => {
       
       // Create game
       try {
-        const game = Game.create(player1.userId, player2.userId, false);
+        const game = await Game.create(player1.userId, player2.userId, false);
         
         // Create game room
         const gameRoom = `game:${game.id}`;
@@ -154,7 +154,7 @@ const handleGameEvents = (socket, io) => {
         });
         
         // Start game
-        Game.startGame(game.id);
+        await Game.startGame(game.id);
         
         // Notify both players
         io.to(gameRoom).emit('game:matched', {
@@ -190,10 +190,10 @@ const handleGameEvents = (socket, io) => {
   });
 
   // Start AI game
-  socket.on('game:ai:start', ({ difficulty = 'medium' }) => {
+  socket.on('game:ai:start', async ({ difficulty = 'medium' }) => {
     try {
       // Create game record
-      const game = Game.create(socket.userId, null, true, difficulty);
+      const game = await Game.create(socket.userId, null, true, difficulty);
       
       // Create AI instance
       const ai = createAI(difficulty);
@@ -209,7 +209,7 @@ const handleGameEvents = (socket, io) => {
       });
 
       // Start the game
-      Game.startGame(game.id);
+      await Game.startGame(game.id);
 
       socket.emit('game:started', {
         gameId: game.id,
@@ -256,11 +256,11 @@ const handleGameEvents = (socket, io) => {
   });
 
   // Score update
-  socket.on('game:score', (data) => {
+  socket.on('game:score', async (data) => {
     const { gameId, player1Score, player2Score } = data;
     
     try {
-      Game.updateScore(gameId, player1Score, player2Score);
+      await Game.updateScore(gameId, player1Score, player2Score);
       
       // Broadcast score update
       io.to(`game:${gameId}`).emit('game:score:updated', {
@@ -274,15 +274,15 @@ const handleGameEvents = (socket, io) => {
   });
 
   // Game end
-  socket.on('game:end', (data) => {
+  socket.on('game:end', async (data) => {
     const { gameId, winnerId, player1Score, player2Score } = data;
     
     try {
       // Update final score
-      Game.updateScore(gameId, player1Score, player2Score);
+      await Game.updateScore(gameId, player1Score, player2Score);
       
       // End game
-      const game = Game.endGame(gameId, winnerId);
+      const game = await Game.endGame(gameId, winnerId);
       
       // Clean up
       activeSessions.delete(gameId);
@@ -319,9 +319,9 @@ const handleChatEvents = (socket, io) => {
   });
 
   // Send message
-  socket.on('chat:message', ({ roomId, content }) => {
+  socket.on('chat:message', async ({ roomId, content }) => {
     try {
-      const message = Chat.createMessage(roomId, socket.userId, content);
+      const message = await Chat.createMessage(roomId, socket.userId, content);
       
       // Broadcast to room
       io.to(`chat:${roomId}`).emit('chat:message', message);
@@ -342,18 +342,18 @@ const handleChatEvents = (socket, io) => {
 
 const handleNotificationEvents = (socket, io) => {
   // Mark notification as read
-  socket.on('notification:read', ({ notificationId }) => {
+  socket.on('notification:read', async ({ notificationId }) => {
     try {
-      Notification.markAsRead(notificationId, socket.userId);
+      await Notification.markAsRead(notificationId, socket.userId);
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
   });
 
   // Mark all notifications as read
-  socket.on('notification:read:all', () => {
+  socket.on('notification:read:all', async () => {
     try {
-      Notification.markAllAsRead(socket.userId);
+      await Notification.markAllAsRead(socket.userId);
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
@@ -384,13 +384,13 @@ const handleFriendEvents = (socket, io) => {
   });
 };
 
-const cleanupUserSessions = (userId) => {
+const cleanupUserSessions = async (userId) => {
   // Find and clean up any sessions for this user
   for (const [gameId, session] of activeSessions.entries()) {
     if (session.player1Id === userId || session.player2Id === userId) {
       // Mark game as abandoned
       try {
-        Game.abandonGame(gameId);
+        await Game.abandonGame(gameId);
       } catch (error) {
         console.error('Error abandoning game:', error);
       }

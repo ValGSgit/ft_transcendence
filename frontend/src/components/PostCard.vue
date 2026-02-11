@@ -235,11 +235,12 @@ const displayedComments = computed(() => {
 
 // Normalize comment author data
 const normalizeCommentAuthor = (comment) => {
+  if (!comment) return { id: null, username: 'Unknown', avatar: null }
   if (comment.author) return comment.author
   return {
-    id: comment.user_id,
-    username: comment.username,
-    avatar: comment.avatar
+    id: comment.user_id || null,
+    username: comment.username || 'Unknown',
+    avatar: comment.avatar || null
   }
 }
 
