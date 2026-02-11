@@ -50,7 +50,7 @@ export const initializeSocket = (httpServer) => {
     }
   });
 
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     console.log(`User connected: ${socket.user.username} (${socket.userId})`);
     
     // Store socket reference
@@ -81,7 +81,7 @@ export const initializeSocket = (httpServer) => {
     handleFriendEvents(socket, io);
 
     // Handle disconnect
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       console.log(`User disconnected: ${socket.user.username}`);
       
       // Remove socket reference
@@ -109,7 +109,7 @@ const matchmakingQueue = [];
 
 const handleGameEvents = (socket, io) => {
   // Start matchmaking
-  socket.on('game:matchmaking:join', () => {
+  socket.on('game:matchmaking:join', async () => {
     console.log(`User ${socket.user.username} joined matchmaking`);
     
     // Check if user is already in queue
