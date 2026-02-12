@@ -273,7 +273,7 @@
 | Requirement | Status | Notes |
 |-------------|--------|-------|
 | Web app (frontend + backend + database) | ✅ | Vue 3 + Express + SQLite/PostgreSQL |
-| Git with clear commits from all members | ⚠️ | Solo — verify commit quality |
+| Git with clear commits from all members | ⚠️ | verify commit quality |
 | Containerized deployment, single command | ✅ | `make prod` / `docker compose` |
 | Compatible with latest Chrome | ⚠️ | Needs testing |
 | No browser console errors/warnings | ❌ | Needs audit |
@@ -364,10 +364,48 @@
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| 2026-02-12 | Docker cleanup after VM crash | Removed orphaned volumes, cleaned build cache, fixed compose deprecation |
+| **Phase 0: Initialization** | | |
+| 2025-12-10 | Initial commit (1390473) | Project inception |
+| 2026-01-14 | Upload subject to repo (a23c5c7) | Reference documentation for 42 ft_transcendence requirements |
+| **Phase 1: OAuth & Docker Setup (3-week effort)** | | |
+| 2026-02-02 | Implement OAuth with dual frontend support (9d71b12) | Critical authentication requirement; 3 weeks of configuration |
+| 2026-02-02 | Complete production Docker setup with working auth (57f2bd9) | Production-ready containerization with Nginx, SSL, health checks |
+| **Phase 2: Testing & Game Core** | | |
+| 2026-02-02 | Achieve 81% function coverage (7a2c5af) | Comprehensive test suite for controllers, models, services |
+| 2026-02-02 | Fix game loading issue, improve test coverage to 80% (4af357a) | Game movement with incremental speed, better test reliability |
+| 2026-02-02 | UI/UX improvements and game enhancements (3d2ae62) | Improved gameplay, better frontend developer experience |
+| **Phase 3: Features & Data Systems** | | |
+| 2026-02-02 | Full data consistency, posts system, chat fixes, dark mode (ae1e29c) | Social features implementation, theme support |
+| 2026-02-02 | Implement all remaining features, resolve runtime errors (5f51dd8) | Critical bug fixes, feature completion |
+| 2026-02-02 | Adjust movement speed and control logic (63386e3) | Game mechanics refinement |
+| 2026-02-03 | Delete PROJECT_COMPLETE.md (231a7b0) | Cleanup redundant status file |
+| **Phase 4: Frontend Improvements** | | |
+| 2026-02-05 | Improve post likes, comments, friend request handling (07ce604) | Enhanced social interaction features |
+| 2026-02-05 | Resolve multiple critical frontend/backend issues (a80b00e) | Major bug fixes, stability improvements |
+| 2026-02-06 | Improve general connectivity for in-network access (3c95fd1) | Better local network support |
+| 2026-02-06 | Enable local network access for mobile testing (031ee8d) | Mobile device testing capability |
+| **Phase 5: Game Features** | | |
+| 2026-02-09 | Add navbar in game mode, fix settings GUI (7f496ff) | Better game UX |
+| 2026-02-09 | Implement mini shop for increasing map size (56924ac) | Game progression mechanic |
+| 2026-02-09 | Add shop, limit alpaca size based on farm size (f63d150) | Game balance and mechanics |
+| 2026-02-09 | Delete frontend/.env.development.local (4261923) | Remove sensitive config from repo |
+| 2026-02-10 | Ensure no merge conflicts with Ka Hou's update (88ab295) | Team collaboration, merge Main and Val branches |
+| 2026-02-11 | Big change in save/load (1f38574) | Game state persistence improvements |
+| **Phase 6: Production & Database Migration** | | |
+| 2026-02-11 | Add package locks for npm ci compatibility (8662afd) | Deterministic builds, version control, faster CI |
+| 2026-02-11 | Migrate to async/await and add PostgreSQL support (28168f0) | Modern async patterns, production database |
+| 2026-02-11 | Dual-database adapter: PostgreSQL for prod, SQLite for dev (e026a01) | Production stability with dev convenience; SQL translation layer |
+| 2026-02-11 | OAuth works in both dev and prod builds (e026a01) | Environment-agnostic authentication |
+| **Phase 7: Recent Organization** | | |
+| 2026-02-12 | Docker cleanup after VM crash | Removed 1.03GB build cache, 2 orphaned volumes, fixed compose deprecation |
 | 2026-02-12 | Fixed `docker-compose.yml` NODE_ENV from production to development | Dev compose should use development mode |
 | 2026-02-12 | Fixed `package-lock.json` in `.gitignore` | Was ignored, preventing `npm ci` from working; now tracked |
 | 2026-02-12 | Generated `package-lock.json` for root, backend, frontend | Required for `npm ci` in Dockerfiles and CI |
-| 2026-02-12 | Expanded module target from 16 → 35 points | Aggressive but provides safety margin; 14 minimum |
+| 2026-02-12 | Rename frontend package from "my-3d-app" to "transcendence-frontend" | Professional naming consistency |
+| 2026-02-12 | Created comprehensive BACKLOG.md | Project planning, module tracking, compliance checklists |
+| 2026-02-12 | Expanded module target from 16 → 35 points | Aggressive but provides safety margin; 14 minimum required |
+| 2026-02-12 | Planned documentation cleanup | Remove 8+ redundant docs to streamline repository |
+| **Pending Decisions** | | |
 | TBD | Game identity: Pong vs Alpaca Farm vs both | Need to decide — second game module may allow both |
 | TBD | ORM choice | Sequelize, Prisma, or Drizzle — evaluate compatibility with dual-DB |
+| TBD | Privacy Policy & Terms of Service content | Pages exist but need legal content |
