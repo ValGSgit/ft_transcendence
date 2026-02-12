@@ -27,7 +27,7 @@ export class User {
 
   static async findById(id) {
     const stmt = db.prepare(`
-      SELECT id, username, email, avatar, bio, status, online, two_factor_enabled, last_seen, created_at, updated_at
+      SELECT id, username, email, avatar, bio, status, online, is_admin, two_factor_enabled, last_seen, created_at, updated_at
       FROM users WHERE id = ?
     `);
     return await stmt.get(id);

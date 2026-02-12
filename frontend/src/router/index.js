@@ -12,6 +12,7 @@ const Friends = () => import('../views/Friends.vue')
 const Messages = () => import('../views/Messages.vue')
 const Game = () => import('../views/Game.vue')
 const Settings = () => import('../views/Settings.vue')
+const AdminDiagram = () => import('../views/AdminDiagram.vue')
 const NotFound = () => import('../views/NotFound.vue')
 
 const routes = [
@@ -76,6 +77,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/admin/diagram',
+    name: 'AdminDiagram',
+    component: AdminDiagram,
+    meta: { requiresAuth: true, requiresAdmin: true }
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: NotFound
@@ -106,6 +113,11 @@ router.beforeEach(async (to, from, next) => {
   // Redirect unauthenticated users to login
   if (to.meta.requiresAuth && !isAuthenticated) {
     return next({ name: 'Login', query: { redirect: to.fullPath } })
+  }
+
+  // Check admin access for admin-only routes
+  if (to.meta.requiresAdmin && !authStore.user?.is_admin) {
+    return next({ name: 'Home' })
   }
 
   next()

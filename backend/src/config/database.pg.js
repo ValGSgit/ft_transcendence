@@ -88,6 +88,7 @@ const initDatabase = async () => {
         bio TEXT DEFAULT '',
         status TEXT DEFAULT 'Hey there! I am using Transcendence',
         online BOOLEAN DEFAULT FALSE,
+        is_admin BOOLEAN DEFAULT FALSE,
         two_factor_enabled BOOLEAN DEFAULT FALSE,
         two_factor_secret TEXT,
         last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

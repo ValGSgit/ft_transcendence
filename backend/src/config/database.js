@@ -54,6 +54,7 @@ if (USE_POSTGRES) {
         bio TEXT DEFAULT '',
         status TEXT DEFAULT 'Hey there! I am using Transcendence',
         online BOOLEAN DEFAULT 0,
+        is_admin BOOLEAN DEFAULT 0,
         two_factor_enabled BOOLEAN DEFAULT 0,
         two_factor_secret TEXT,
         last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
