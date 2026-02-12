@@ -1,48 +1,95 @@
-version: '3.8'
+# ==========================================================================
+# TRANSCENDENCE - Docker Compose (Development)
+# ==========================================================================
+# Single entry point: http://localhost (nginx on port 80)
+# All services communicate over an internal Docker network.
+# ==========================================================================
 
 services:
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: transcendence_backend
-    ports:
-      - "3000:3000"
+  # ---------- PostgreSQL Database ----------
+  postgres:
+    image: postgres:16-alpine
+    container_name: transcendence_db
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
-      - DATABASE_PATH=/app/data/transcendence.db
+      POSTGRES_DB: ${DB_NAME:-transcendence}
+      POSTGRES_USER: ${DB_USER:-transcendence}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-transcendence_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - transcendence
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-transcendence}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ---------- Express.js Backend (API + WebSocket) ----------
+  backend:
+    build: ./backend
+    container_name: transcendence_backend
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DB_TYPE: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-transcendence}
+      DB_USER: ${DB_USER:-transcendence}
+      DB_PASSWORD: ${DB_PASSWORD:-transcendence_password}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+      FRONTEND_URL: http://localhost:8080
+      CORS_ORIGINS: "http://localhost:8080,http://127.0.0.1:8080"
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: http://localhost:8080/api/auth/google/callback
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_CALLBACK_URL: http://localhost:8080/api/auth/github/callback
     volumes:
       - ./backend:/app
       - /app/node_modules
-      - backend_data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     networks:
-      - transcendence_network
+      - transcendence
 
+  # ---------- Vue 3 Frontend (Vite dev server) ----------
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    build: ./frontend
     container_name: transcendence_frontend
-    ports:
-      - "5173:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      - CHOKIDAR_USEPOLLING=true
-      - VITE_API_URL=http://localhost:3000
+      CHOKIDAR_USEPOLLING: "true"
     depends_on:
       - backend
     restart: unless-stopped
     networks:
-      - transcendence_network
+      - transcendence
+
+  # ---------- Nginx Reverse Proxy (single entry point) ----------
+  nginx:
+    image: nginx:alpine
+    container_name: transcendence_nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    networks:
+      - transcendence
 
 volumes:
-  backend_data:
+  postgres_data:
 
 networks:
-  transcendence_network:
+  transcendence:
     driver: bridge

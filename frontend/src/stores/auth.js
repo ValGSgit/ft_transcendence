@@ -48,8 +48,6 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await api.post('/auth/register', userData)
       
-      console.log('Register response:', response.data)
-      
       // Extract data from the response wrapper
       const { token: accessToken, refreshToken: refresh, user: newUser } = response.data.data || response.data
       
@@ -81,8 +79,6 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
     try {
       const response = await api.post('/auth/login', credentials)
-      
-      console.log('Login response:', response.data)
       
       // Check if 2FA is required
       if (response.data.data?.requires2FA) {

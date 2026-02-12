@@ -405,7 +405,49 @@
 | 2026-02-12 | Created comprehensive BACKLOG.md | Project planning, module tracking, compliance checklists |
 | 2026-02-12 | Expanded module target from 16 → 35 points | Aggressive but provides safety margin; 14 minimum required |
 | 2026-02-12 | Planned documentation cleanup | Remove 8+ redundant docs to streamline repository |
+| 2026-02-12 | Added admin architecture diagram system | Mermaid.js diagram at /admin/diagram for team onboarding; admin-only access |
+| **Phase 8: Code Quality & Product Owner Implementation (70 issues fixed)** | | |
+| 2026-02-12 | **SECURITY**: Fixed password reset token exposure in production | Token now only returned in dev mode; production uses email (C1) |
+| 2026-02-12 | **SECURITY**: Removed userId leak in 2FA response | Returns email instead to prevent user enumeration (C2) |
+| 2026-02-12 | **SECURITY**: Added token type distinction (access vs refresh) | Prevents token misuse; refresh tokens can't be used as access tokens (C3) |
+| 2026-02-12 | **SECURITY**: Password change now requires current password | Prevents unauthorized password changes via stolen tokens (C4) |
+| 2026-02-12 | **SECURITY**: Added blob size limit (500KB) to farm stats | Prevents abuse of unlimited JSON storage (C6) |
+| 2026-02-12 | **SECURITY**: Added chat room authorization checks | Users must be room members to read/send messages (C7, C8, C9) |
+| 2026-02-12 | **SECURITY**: Added authorization to game abandon endpoint | Only game participants can abandon games (C10) |
+| 2026-02-12 | **SECURITY**: Narrowed CORS origins, removed hardcoded IPs | Removed Angular ports, specific machine IPs; safer regex patterns (C11, Q4, Q5) |
+| 2026-02-12 | **SECURITY**: Fixed package-lock.json tracking | Removed from .gitignore for reproducible builds and supply-chain security (C14) |
+| 2026-02-12 | **QUALITY**: Removed dead PongGame.js code | Project is Alpaca Farm, not Pong; 200+ lines of unused code removed (Q1, Q2, Q3) |
+| 2026-02-12 | **QUALITY**: Fixed notification routes to use PATCH (RESTful) | Changed POST to PATCH for mark-as-read operations (Q21) |
+| 2026-02-12 | **QUALITY**: Added input validation to profile updates | Email and username validation on updates, not just registration (C5, Q  |
+| 2026-02-12 | **QUALITY**: Removed console.log from production code | Cleaned debug logs from auth store exposing tokens (Q18) |
+| 2026-02-12 | **QUALITY**: Fixed social store response path inconsistency | Standardized response.data.data wrapper pattern (Q19) |
+| 2026-02-12 | **UX**: Improved email validation | Client-side now uses proper regex, not just `.includes('@')` (U3) |
+| 2026-02-12 | **UX**: Fixed Profile cover photo default | Removed undefined variable, now uses valid path (Q11) |
+| 2026-02-12 | **UX**: Added forgot password handler | "Forgot password?" link now functional (  |
+| 2026-02-12 | **DOCS**: Updated README with accurate project description | Changed from "Pong" to "Alpaca Farm", dual-database architecture documented (D1-D3) |
+| 2026-02-12 | **DOCS**: Added team section with Product Owner role | vagarcia clearly identified as PO with role responsibilities |
+| 2026-02-12 | **DOCS**: Fixed module count from 15 to 35 points | Accurate representation of project scope (D2) |
+| 2026-02-12 | **DOCS**: Updated database schema in README | Added is_admin, fixed column names, added missing tables (D4-D6) |
+| 2026-02-12 | **DOCS**: Added team structure to CONTRIBUTING.md | PO role, responsibilities, workflow for team collaboration (D17) |
+| 2026-02-12 | **DOCS**: Changed fork workflow to branch workflow | Team members work on branches, not forks; appropriate for single-repo teams (D17) |
+| **Phase 9: Repository Restructuring for Team Clarity** | | |
+| 2026-02-12 | **STRUCTURE**: Created `docs/` folder | Consolidated all technical docs in one place for easier discovery |
+| 2026-02-12 | **STRUCTURE**: Moved 7 markdown docs to `docs/` | AUTHENTICATION.md, DATABASE_MIGRATION.md, DEPLOYMENT.md, OAUTH_SETUP.md, SECURITY.md, TESTING.md, transubject.pdf now in `docs/` |
+| 2026-02-12 | **STRUCTURE**: Removed `README.md.bak` backup file | Outdated backup cluttering root directory |
+| 2026-02-12 | **STRUCTURE**: Removed `ARCHITECTURE_DIAGRAM.html` | Standalone file replaced by admin-only `/admin/diagram` route |
+| 2026-02-12 | **STRUCTURE**: Removed empty `shared/` directory | PongGame files deleted in Phase 8; entire directory now unused |
+| 2026-02-12 | **STRUCTURE**: Removed redundant frontend files | `frontend/docker-compose.yml` and `frontend/Makefile` superseded by root Makefile |
+| 2026-02-12 | **STRUCTURE**: Updated Makefile | Removed `SHARED_DIR`, `install-shared` target, and shared node_modules references |
+| 2026-02-12 | **STRUCTURE**: Updated root `package.json` | Removed shared/ references from scripts; updated description to "Alpaca Farm" |
+| 2026-02-12 | **DOCS**: Updated cross-references in README.md | Changed `DEPLOYMENT.md` → `docs/DEPLOYMENT.md`, etc. |
+| 2026-02-12 | **DOCS**: Updated cross-references in CONTRIBUTING.md | Changed `TESTING.md` → `docs/TESTING.md` |
+| 2026-02-12 | **DOCS**: Updated README file structure section | Removed shared/, added docs/, added nginx/, scripts/, BACKLOG.md |
+| 2026-02-12 | **DOCS**: Updated CONTRIBUTING.md file structure | Removed shared/, added docs/ with full documentation list |
+| 2026-02-12 | **DOCS**: Expanded "Where to Make Changes" in CONTRIBUTING.md | Added database migrations, Nginx config, docs updates |
+| 2026-02-12 | **DOCS**: Created comprehensive `QUICKSTART.md` | 350+ line teammate guide: simplified structure, team roles, common workflows, troubleshooting |
+| 2026-02-12 | **Outcome**: Repository simplified from 20+ root items to ~12 | Teammates can now easily find docs in `docs/`, understand structure via QUICKSTART.md |
 | **Pending Decisions** | | |
 | TBD | Game identity: Pong vs Alpaca Farm vs both | Need to decide — second game module may allow both |
 | TBD | ORM choice | Sequelize, Prisma, or Drizzle — evaluate compatibility with dual-DB |
 | TBD | Privacy Policy & Terms of Service content | Pages exist but need legal content |
+| TBD | Forgot password email integration | Backend ready; need email service (SendGrid/Mailgun) for production |

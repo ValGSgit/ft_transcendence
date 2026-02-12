@@ -43,6 +43,13 @@ export const getRoomMessages = async (req, res) => {
     const { roomId } = req.params;
     const { limit = 50, page, offset } = req.query;
 
+    // Verify user is a member of this room
+    const members = await Chat.getRoomMembers(parseInt(roomId));
+    const isMember = members.some(m => m.user_id === req.user.id || m.id === req.user.id);
+    if (!isMember) {
+      return errorResponse(res, 'You are not a member of this room', 403);
+    }
+
     // Support both page and offset parameters
     const finalLimit = parseInt(limit);
     const finalOffset = offset !== undefined 
@@ -66,6 +73,13 @@ export const sendMessage = async (req, res) => {
   try {
     const { roomId } = req.params;
     const { content } = req.body;
+
+    // Verify user is a member of this room
+    const members = await Chat.getRoomMembers(parseInt(roomId));
+    const isMember = members.some(m => m.user_id === req.user.id || m.id === req.user.id);
+    if (!isMember) {
+      return errorResponse(res, 'You are not a member of this room', 403);
+    }
 
     if (!content || !content.trim()) {
       return errorResponse(res, 'Message content is required', 400);
@@ -130,6 +144,13 @@ export const addRoomMember = async (req, res) => {
       return errorResponse(res, 'User ID is required', 400);
     }
 
+    // Only existing members can add new members
+    const members = await Chat.getRoomMembers(parseInt(roomId));
+    const isMember = members.some(m => m.user_id === req.user.id || m.id === req.user.id);
+    if (!isMember) {
+      return errorResponse(res, 'Only room members can add new members', 403);
+    }
+
     await Chat.addMember(parseInt(roomId), parseInt(userId));
     return successResponse(res, null, 'Member added');
   } catch (error) {
@@ -141,6 +162,17 @@ export const addRoomMember = async (req, res) => {
 export const removeRoomMember = async (req, res) => {
   try {
     const { roomId, userId } = req.params;
+
+    // Only allow self-removal or room creator removal
+    const requestUserOwnsAction = parseInt(userId) === req.user.id;
+    if (!requestUserOwnsAction) {
+      const members = await Chat.getRoomMembers(parseInt(roomId));
+      const isMember = members.some(m => m.user_id === req.user.id || m.id === req.user.id);
+      if (!isMember) {
+        return errorResponse(res, 'Not authorized to remove members from this room', 403);
+      }
+    }
+
     await Chat.removeMember(parseInt(roomId), parseInt(userId));
     return successResponse(res, null, 'Member removed');
   } catch (error) {

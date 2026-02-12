@@ -164,11 +164,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useSocialStore } from '../stores/social'
 import PostCard from '../components/PostCard.vue'
 
+const route = useRoute()
 const authStore = useAuthStore()
 const socialStore = useSocialStore()
 
@@ -202,6 +204,17 @@ const editPost = ref({
 
 onMounted(async () => {
   await socialStore.fetchPosts(1, true)
+  
+  // Check for query parameters to open create modal
+  if (route.query.createPost === 'true') {
+    const type = route.query.type || 'text'
+    postType.value = type
+    showCreateModal.value = true
+    
+    // Focus textarea after modal opens
+    await nextTick()
+    postTextarea.value?.focus()
+  }
 })
 
 function getPlaceholder() {

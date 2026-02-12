@@ -1,11 +1,11 @@
 {
   "name": "transcendence",
   "version": "1.0.0",
-  "description": "A modern web application featuring a 3D Pong game with authentication, social features, and AI opponent",
+  "description": "Full-stack social gaming platform with Alpaca Farm game — 42 School Project",
   "private": true,
   "type": "module",
   "scripts": {
-    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install && cd ../shared && npm install",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
@@ -16,12 +16,13 @@
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
-    "clean": "rm -rf node_modules backend/node_modules frontend/node_modules shared/node_modules",
+    "clean": "rm -rf node_modules backend/node_modules frontend/node_modules",
     "test": "cd backend && npm test"
   },
   "keywords": [
     "transcendence",
     "pong",
+    "alpaca-farm",
     "three.js",
     "vue",
     "express",

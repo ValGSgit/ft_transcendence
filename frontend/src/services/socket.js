@@ -2,10 +2,8 @@ import { io } from 'socket.io-client'
 import { useSocialStore } from '../stores/social'
 import { useChatStore } from '../stores/chat'
 
-// In production, use relative URLs to leverage nginx proxy
-// In development, use the full URL
-const isProduction = import.meta.env.PROD
-const SOCKET_URL = isProduction ? '' : (import.meta.env.VITE_WS_URL || 'http://localhost:3000')
+// Socket connects to the same origin.
+// Routing is handled by nginx (Docker) or Vite proxy (local dev).
 
 class SocketService {
   constructor() {
@@ -20,7 +18,7 @@ class SocketService {
       return
     }
 
-    this.socket = io(SOCKET_URL, {
+    this.socket = io({
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,

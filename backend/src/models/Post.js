@@ -184,6 +184,32 @@ export class Post {
     `);
     return await stmt.run(commentId, userId);
   }
+
+  static async getAllForAdmin(limit = 100, offset = 0) {
+    const stmt = db.prepare(`
+      SELECT p.*, u.username, u.avatar,
+             (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) as likes_count,
+             (SELECT COUNT(*) FROM post_comments WHERE post_id = p.id) as comments_count
+      FROM posts p
+      JOIN users u ON p.user_id = u.id
+      ORDER BY p.created_at DESC
+      LIMIT ? OFFSET ?
+    `);
+    const posts = await stmt.all(limit, offset);
+    return posts.map(post => {
+      if (post.farm_data) {
+        post.farm_data = JSON.parse(post.farm_data);
+      }
+      return {
+        ...post,
+        user: {
+          id: post.user_id,
+          username: post.username,
+          avatar: post.avatar
+        }
+      };
+    });
+  }
 }
 
 export default Post;

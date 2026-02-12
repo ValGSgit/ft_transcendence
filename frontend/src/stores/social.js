@@ -210,8 +210,9 @@ export const useSocialStore = defineStore('social', () => {
     try {
       const response = await api.post('/friends/requests', { receiverId: userId })
       // Add to sent requests for UI updates
-      if (response.data.request) {
-        sentRequests.value.push(response.data.request)
+      const responseData = response.data.data || response.data
+      if (responseData.request) {
+        sentRequests.value.push(responseData.request)
       }
       return response.data
     } catch (err) {

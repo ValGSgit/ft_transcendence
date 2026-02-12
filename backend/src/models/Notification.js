@@ -38,7 +38,7 @@ export class Notification {
   static async getUnreadCount(userId) {
     const stmt = db.prepare(`
       SELECT COUNT(*) as count FROM notifications
-      WHERE user_id = ? AND read = 0
+      WHERE user_id = ? AND read = FALSE
     `);
     const result = await stmt.get(userId);
     return result.count;
@@ -47,7 +47,7 @@ export class Notification {
   static async markAsRead(id, userId) {
     const stmt = db.prepare(`
       UPDATE notifications
-      SET read = 1
+      SET read = TRUE
       WHERE id = ? AND user_id = ?
     `);
     await stmt.run(id, userId);
@@ -57,7 +57,7 @@ export class Notification {
   static async markAllAsRead(userId) {
     const stmt = db.prepare(`
       UPDATE notifications
-      SET read = 1
+      SET read = TRUE
       WHERE user_id = ?
     `);
     return await stmt.run(userId);

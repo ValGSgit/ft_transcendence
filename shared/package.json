@@ -1,9 +1,0 @@
-{
-  "name": "transcendence-shared-game",
-  "version": "1.0.0",
-  "description": "Shared Three.js game logic",
-  "type": "module",
-  "dependencies": {
-    "three": "0.160.0"
-  }
-}

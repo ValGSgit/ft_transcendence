@@ -16,7 +16,7 @@ import { authenticate, optionalAuth } from '../middleware/auth.js';
 const router = express.Router();
 
 // Public routes
-router.get('/config', getGameConfig);
+router.get('/config', optionalAuth, getGameConfig);
 router.get('/leaderboard', optionalAuth, getLeaderboard);
 
 // Protected routes

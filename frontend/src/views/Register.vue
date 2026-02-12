@@ -170,9 +170,10 @@ const passwordStrength = computed(() => {
 })
 
 const isFormValid = computed(() => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   return (
     form.username.length >= 3 &&
-    form.email.includes('@') &&
+    emailRegex.test(form.email) &&
     form.password.length >= 8 &&
     passwordsMatch.value &&
     form.acceptTerms
@@ -201,11 +202,8 @@ async function handleRegister() {
 }
 
 function handleOAuthLogin(provider) {
-  // In production, use relative URL to leverage nginx proxy
-  // In development, use the full URL
-  const isProduction = import.meta.env.PROD
-  const apiUrl = isProduction ? '' : (import.meta.env.VITE_API_URL || 'http://localhost:3000')
-  window.location.href = `${apiUrl}/api/auth/${provider}`
+  // Always use relative URL to leverage nginx proxy (running on port 8080)
+  window.location.href = `/api/auth/${provider}`
 }
 </script>
 

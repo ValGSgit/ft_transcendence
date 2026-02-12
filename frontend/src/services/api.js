@@ -1,12 +1,9 @@
 import axios from 'axios'
 
-// In production, use relative URLs to leverage nginx proxy
-// In development, use the full URL
-const isProduction = import.meta.env.PROD
-const API_URL = isProduction ? '' : (import.meta.env.VITE_API_URL || 'http://localhost:3000')
-
+// All API requests use relative paths.
+// Routing is handled by nginx (Docker) or Vite proxy (local dev).
 const api = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: '/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -38,7 +35,7 @@ api.interceptors.response.use(
       const refreshToken = localStorage.getItem('refreshToken')
       if (refreshToken) {
         try {
-          const response = await axios.post(`${API_URL}/api/auth/refresh`, {
+          const response = await axios.post('/api/auth/refresh', {
             refreshToken
           })
 

@@ -197,9 +197,20 @@ export const getLeaderboard = async (req, res) => {
 export const abandonGame = async (req, res) => {
   try {
     const { gameId } = req.params;
-    const game = await Game.abandonGame(parseInt(gameId));
 
-    return successResponse(res, { game }, 'Game abandoned');
+    const game = await Game.findById(parseInt(gameId));
+    if (!game) {
+      return errorResponse(res, 'Game not found', 404);
+    }
+
+    // Only participants can abandon a game
+    const userId = req.user.id;
+    if (game.player1_id !== userId && game.player2_id !== userId) {
+      return errorResponse(res, 'Not authorized to abandon this game', 403);
+    }
+
+    const abandonedGame = await Game.abandonGame(parseInt(gameId));
+    return successResponse(res, { game: abandonedGame }, 'Game abandoned');
   } catch (error) {
     console.error('Abandon game error:', error);
     return errorResponse(res, 'Failed to abandon game', 500);

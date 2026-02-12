@@ -2,8 +2,32 @@
 
 Thank you for considering contributing to Transcendence! This document provides guidelines and best practices for contributing to the project.
 
+## � Team Structure
+
+**Product Owner**: vagarcia
+- Defines project vision and roadmap
+- Manages backlog and module priorities
+- Ensures compliance with 42 subject requirements
+- Makes final decisions on features and architecture
+
+**Development Team**:
+- Full-stack development (Vue 3 + Express.js)
+- Code review and quality assurance
+- Testing and documentation
+- DevOps and deployment
+
+### Working with the Product Owner
+
+- All major architectural decisions require PO approval
+- Module selection and priority defined in BACKLOG.md
+- Feature requests should align with module strategy
+- Regular sync on progress and blockers
+
+## �📋 Table of Contents
+
 ## 📋 Table of Contents
 
+- [Team Structure](#team-structure)
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
 - [Code Style](#code-style)
@@ -14,20 +38,31 @@ Thank you for considering contributing to Transcendence! This document provides 
 
 ## 🚀 Getting Started
 
-1. **Fork the repository** on GitHub
-2. **Clone your fork** locally:
+For team members working on the same repository:
+
+1. **Clone the repository**:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/transcendence.git
+   git clone <repository-url>
    cd transcendence
    ```
+2. **Create a feature branch**:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+3. **Keep your branch updated**:
+   ```bash
+   git pull origin main  # or Val, depending on your base branch
+   ```
+
+For external contributors:
+
+1. **Fork the repository** on GitHub
+2. **Clone your fork** locally
 3. **Add upstream remote**:
    ```bash
-   git remote add upstream https://github.com/ORIGINAL_OWNER/transcendence.git
+   git remote add upstream <original-repository-url>
    ```
-4. **Create a feature branch**:
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
+4. **Create a feature branch** from your fork
 
 ## 🛠️ Development Setup
 
@@ -269,7 +304,7 @@ cd backend && npm test user.test.js
 - **Controllers**: >70% coverage
 - **Services**: >70% coverage
 
-See [TESTING.md](TESTING.md) for comprehensive testing guide.
+See [docs/TESTING.md](docs/TESTING.md) for comprehensive testing guide.
 
 ## 🔄 Pull Request Process
 
@@ -378,8 +413,17 @@ transcendence/
 │   │   └── views/       # Page components
 │   └── package.json
 │
-├── shared/              # Shared code (if any)
-├── docs/                # Additional documentation
+├── docs/                # Documentation
+│   ├── AUTHENTICATION.md
+│   ├── DATABASE_MIGRATION.md
+│   ├── DEPLOYMENT.md
+│   ├── OAUTH_SETUP.md
+│   ├── SECURITY.md
+│   ├── TESTING.md
+│   └── transubject.pdf
+│
+├── nginx/               # Nginx reverse proxy configs
+├── scripts/             # Utility scripts (DB, admin tools)
 └── package.json         # Root package file
 ```
 
@@ -387,11 +431,13 @@ transcendence/
 
 - **Adding API endpoint**: `backend/src/routes/` + `backend/src/controllers/`
 - **Adding database model**: `backend/src/models/`
+- **Adding database migration**: `scripts/` (for schema changes)
 - **Adding Vue component**: `frontend/src/components/`
 - **Adding page**: `frontend/src/views/` + update router
 - **Adding Pinia store**: `frontend/src/stores/`
 - **Adding tests**: `backend/src/__tests__/`
-- **Updating docs**: Root `.md` files or `docs/`
+- **Updating docs**: `docs/` folder for technical docs, root `.md` for guides
+- **Nginx config**: `nginx/` or `frontend/nginx.conf` (production container)
 
 ## 🐛 Reporting Bugs
 

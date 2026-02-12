@@ -1,7 +1,7 @@
 import User from '../models/User.js';
-import { sanitizeUser } from '../utils/validation.js';
+import { sanitizeUser, validateEmail, validatePassword, validateUsername } from '../utils/validation.js';
 import { successResponse, errorResponse } from '../utils/response.js';
-import { hashPassword } from '../utils/auth.js';
+import { hashPassword, comparePassword } from '../utils/auth.js';
 
 export const getAllUsers = async (req, res) => {
   try {
@@ -69,7 +69,9 @@ export const updateProfile = async (req, res) => {
     const updateData = {};
 
     if (username) {
-      // Check if username is already taken
+      if (!validateUsername(username)) {
+        return errorResponse(res, 'Username must be 3-20 characters with only letters, numbers, and underscores', 400);
+      }
       const existing = await User.findByUsername(username);
       if (existing && existing.id !== userId) {
         return errorResponse(res, 'Username already taken', 409);
@@ -78,7 +80,9 @@ export const updateProfile = async (req, res) => {
     }
 
     if (email) {
-      // Check if email is already taken
+      if (!validateEmail(email)) {
+        return errorResponse(res, 'Invalid email format', 400);
+      }
       const existing = await User.findByEmail(email);
       if (existing && existing.id !== userId) {
         return errorResponse(res, 'Email already registered', 409);
@@ -90,7 +94,26 @@ export const updateProfile = async (req, res) => {
     if (bio !== undefined) updateData.bio = bio;
     if (status !== undefined) updateData.status = status;
 
+    // Handle cover photo updates
+    if (req.body.coverPhoto !== undefined) {
+      updateData.cover_photo = req.body.coverPhoto;
+    }
+
     if (password) {
+      // Require current password verification before changing password
+      const { currentPassword } = req.body;
+      if (!currentPassword) {
+        return errorResponse(res, 'Current password is required to set a new password', 400);
+      }
+      const userWithPassword = await User.findByIdWithPassword(userId);
+      const isValid = await comparePassword(currentPassword, userWithPassword.password);
+      if (!isValid) {
+        return errorResponse(res, 'Current password is incorrect', 401);
+      }
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        return errorResponse(res, passwordValidation.message, 400);
+      }
       updateData.password = await hashPassword(password);
     }
 
@@ -175,7 +198,16 @@ export const updateFarmStats = async (req, res) => {
       return errorResponse(res, 'Invalid alpacas value', 400);
     }
 
-    const stats = await User.updateFarmStats(userId, { coins, alpacas ,blob });
+    // Enforce blob size limit (500KB max) to prevent abuse
+    const MAX_BLOB_SIZE = 500 * 1024;
+    if (blob !== undefined) {
+      const blobSize = typeof blob === 'string' ? blob.length : JSON.stringify(blob).length;
+      if (blobSize > MAX_BLOB_SIZE) {
+        return errorResponse(res, 'Farm data exceeds maximum allowed size', 400);
+      }
+    }
+
+    const stats = await User.updateFarmStats(userId, { coins, alpacas, blob });
     
     if (!stats) {
       return errorResponse(res, 'Stats not found', 404);

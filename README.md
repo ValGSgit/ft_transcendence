@@ -1,37 +1,39 @@
 # Transcendence
 
-*Modern full-stack social gaming platform - 42 School Project by vagarcia*
+*Full-stack social gaming platform — 42 School Project*
 
-## 🎮 Description
+## Description
 
-**Transcendence** is a sophisticated web application combining real-time multiplayer Pong gaming with comprehensive social networking features. Built with modern technologies, it features secure authentication (including 2FA and OAuth), real-time chat, AI opponents, and a polished user experience.
+**Transcendence** is a web application combining an interactive Alpaca Farm game with comprehensive social networking features. Built with Vue 3, Express.js, and Three.js, it features secure authentication (including 2FA and OAuth), real-time chat, and a dual-database architecture (SQLite for development, PostgreSQL for production).
 
-### ✨ Key Features
+### Key Features
 
-- **🎯 3D Pong Game**: Three.js WebGL-based game with realistic physics engine
-- **🤖 AI Opponents**: Three difficulty levels (Easy, Medium, Hard) with intelligent paddle movement
-- **👥 Real-time Multiplayer**: Socket.io-powered live matches with game state synchronization  
-- **🔐 Advanced Authentication**: 
-  - JWT tokens with automatic refresh
-  - TOTP-based Two-Factor Authentication (2FA)
-  - OAuth 2.0 (Google & GitHub)
-  - Bcrypt password hashing
-- **💬 Social Features**: 
-  - Real-time chat with typing indicators
-  - Friends system (requests, blocking, online status)
-  - User profiles with avatars and bios
-  - Notifications system
-- **📊 Statistics & Leaderboards**: Track wins, losses, scores, and rankings
-- **🎨 Modern UI**: Vue 3 with responsive design
-- **🐳 Docker Support**: Containerized deployment for consistent environments
-- **🗄️ Persistent Storage**: File-based SQLite database
+- **Alpaca Farm Game**: Three.js-based open world with farm building, alpaca management, and a shop system
+- **Social Feed**: Posts with likes, comments, and visibility controls
+- **Real-time Chat**: Socket.io-powered direct messages and group channels
+- **Friends System**: Requests, blocking, online status, friend suggestions
+- **Advanced Auth**: JWT + OAuth 2.0 (Google, GitHub) + TOTP 2FA
+- **Dual Database**: SQLite for dev, PostgreSQL 16 for production
+- **Docker**: Containerized dev and production environments with Nginx and SSL
 
-## 🚀 Quick Start
+## 👥 Team
+
+**Product Owner**: vagarcia  
+**Project Type**: 42 School ft_transcendence  
+**Target Modules**: 35 points (16+ modules)
+
+### Roles
+- **Product Owner**: Project vision, backlog management, module strategy
+- **Lead Developer**: Architecture, code review, deployment
+- **Developer**: Full-stack implementation, testing
+- **DevOps**: Docker, CI/CD, database management
+
+## Quick Start
 
 ### Prerequisites
 - Node.js 18+ 
 - npm 9+
-- Git
+- Docker & Docker Compose (for containerized deployment)
 
 ### Installation
 
@@ -52,83 +54,55 @@ make dev
 - Backend API: http://localhost:3000
 - API Health: http://localhost:3000/api/health
 
-### Create Your First Account
+### Docker (Recommended for Production)
 
-1. Navigate to http://localhost:5173/register
-2. Fill in username, email, and password (min 8 chars, uppercase, lowercase, number)
-3. Click "Create Account"
-4. You'll be automatically logged in!
+```bash
+# Development
+docker compose up --build
 
-### Alternative: OAuth Login
+# Production (with PostgreSQL, Nginx, SSL)
+docker compose -f docker-compose.prod.yml up --build -d
+```
 
-1. Go to http://localhost:5173/login
-2. Click "Continue with Google" or "Continue with GitHub"
-3. Authorize the application
-4. You're in!
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for SSL and production setup.
+See [docs/OAUTH_SETUP.md](docs/OAUTH_SETUP.md) for OAuth provider configuration.
 
-See [QUICKSTART.md](QUICKSTART.md) for detailed setup instructions.
-
-## 🛠️ Technical Stack
+## Technical Stack
 
 ### Frontend
 - **Framework**: Vue 3.5+ (Composition API)
-- **Build Tool**: Vite 5.4+ (Fast HMR, optimized builds)
-- **3D Graphics**: Three.js 0.182+ (WebGL rendering)
-- **State Management**: Pinia (Vue state store)
+- **Build Tool**: Vite 5.4+
+- **3D Graphics**: Three.js 0.182+ (Alpaca Farm engine)
+- **State Management**: Pinia
 - **Routing**: Vue Router 4.6+
 - **HTTP Client**: Axios
 - **Real-time**: Socket.io-client
-- **Styling**: Modern CSS3 with responsive design
 
 ### Backend
 - **Runtime**: Node.js 20 LTS
 - **Framework**: Express.js 4.21+
-- **Authentication**: 
-  - Passport.js (OAuth strategies)
-  - jsonwebtoken (JWT)
-  - bcryptjs (password hashing)
-  - speakeasy (TOTP 2FA)
-- **Database**: better-sqlite3 (file-based SQLite)
+- **Authentication**: Passport.js (OAuth), jsonwebtoken (JWT), bcrypt (hashing), speakeasy (TOTP 2FA)
+- **Database**: 
+  - **Development**: better-sqlite3 (SQLite, zero-config)
+  - **Production**: PostgreSQL 16 via `pg` driver
+  - **Adapter**: Custom SQL translation layer (auto-converts `?` → `$1`, `LIKE` → `ILIKE`, etc.)
 - **Real-time**: Socket.io 4.8+
-- **Security**: 
-  - Helmet.js (HTTP headers)
-  - CORS middleware
-  - Rate limiting
-  - express-validator
-- **Development**: 
-  - nodemon (auto-restart)
-  - concurrently (run multiple processes)
-
-### Testing
-- **Framework**: Jest 29+
-- **API Testing**: Supertest
-- **Coverage**: >80% target (see [TESTING.md](TESTING.md))
+- **Security**: Helmet.js, CORS, rate limiting, express-validator
+- **Testing**: Jest 29+, Supertest (>80% coverage target)
 
 ### DevOps
 - **Containerization**: Docker & Docker Compose
-- **Process Manager**: PM2 (production)
-- **Environment**: dotenv for configuration
+- **Reverse Proxy**: Nginx (SSL termination, WebSocket proxy)
+- **SSL**: Certbot / DuckDNS
 
-### Architecture Choices
+### Architecture Decisions
 
-**Why Vue 3?**
-- Excellent performance with Composition API
-- Simple learning curve, great documentation
-- Perfect integration with Vite for instant HMR
-- Pinia provides clean state management
-
-**Why SQLite?**
-- Zero configuration for development
-- Single file database (easy backup/restore)
-- Perfect for prototyping
-- Clear migration path to PostgreSQL for production
-- File-based at `backend/data/transcendence.db`
-
-**Why Socket.io?**
-- Industry standard for WebSocket communication
-- Automatic fallback mechanisms
-- Built-in room support for multiplayer
-- Easy integration with Express
+| Choice | Rationale |
+|--------|-----------|
+| **Vue 3** | Composition API, excellent Vite integration, Pinia state management |
+| **Dual Database** | SQLite for instant dev setup, PostgreSQL for production reliability |
+| **Socket.io** | Built-in rooms for chat, auto-fallback, easy Express integration |
+| **Three.js** | WebGL rendering for the Alpaca Farm 3D experience |
 
 ## 🗄️ Database Schema
 
@@ -522,23 +496,33 @@ transcendence/
 │   ├── package.json                # Dependencies
 │   └── vite.config.js              # Vite configuration
 │
-├── shared/                         # Shared code (optional)
-│   ├── game/
-│   │   ├── PongGame.js
-│   │   └── PongGame.d.ts
-│   └── package.json
+├── docs/                           # Documentation
+│   ├── AUTHENTICATION.md           # Auth setup guide
+│   ├── DATABASE_MIGRATION.md       # SQLite → PostgreSQL migration
+│   ├── DEPLOYMENT.md               # Production deployment & SSL
+│   ├── OAUTH_SETUP.md              # OAuth configuration
+│   ├── SECURITY.md                 # Security best practices
+│   ├── TESTING.md                  # Testing guide
+│   └── transubject.pdf             # 42 School subject PDF
+│
+├── nginx/                          # Nginx configs
+│   └── nginx.conf                  # Production reverse proxy
+│
+├── scripts/                        # Utility scripts
+│   ├── add-admin-field.js          # DB migration for admin system
+│   ├── backup-db.sh                # PostgreSQL backup
+│   ├── make-admin.sh               # CLI admin user tool
+│   ├── restore-db.sh               # PostgreSQL restore
+│   └── test-db.sh                  # DB connection test
 │
 ├── .gitignore
+├── BACKLOG.md                      # Project backlog & sprint plans
+├── CONTRIBUTING.md                 # Contribution guidelines
 ├── docker-compose.yml              # Dev containers
 ├── docker-compose.prod.yml         # Production containers
 ├── Makefile                        # Build automation
 ├── package.json                    # Root dependencies
-├── README.md                       # This file
-├── QUICKSTART.md                   # Quick setup guide
-├── TESTING.md                      # Testing documentation
-├── LOGIN_FIXED.md                  # Auth setup guide
-├── OAUTH_SETUP.md                  # OAuth configuration
-└── CONTRIBUTING.md                 # Contribution guidelines
+└── README.md                       # This file
 ```
 ## 🎮 Usage Guide
 
@@ -942,16 +926,16 @@ MIT License - See LICENSE file for details
 
 ## Conclusion
 
-transcendence demonstrates a production-ready web application with modern architecture, security best practices, and extensible design. The 15-point module implementation exceeds requirements while maintaining code quality and documentation standards.
+transcendence demonstrates a production-ready web application with modern architecture, security best practices, and extensible design. The 35-point module implementation significantly exceeds the 14-module minimum requirement while maintaining code quality and documentation standards.
 
 **Key Achievements**:
 - ✅ Full-stack application with clear separation of concerns
-- ✅ Real-time multiplayer gaming
-- ✅ Secure authentication with 2FA option
-- ✅ AI opponent implementation
-- ✅ Comprehensive documentation
-- ✅ Docker containerization
-- ✅ Extensible architecture for future modules
+- ✅ Real-time social gaming platform
+- ✅ Secure authentication with 2FA and OAuth
+- ✅ Dual-database architecture (SQLite/PostgreSQL)
+- ✅ Comprehensive documentation and testing
+- ✅ Docker containerization for dev and production
+- ✅ Extensible architecture supporting 24+ modules
 
 **Future Roadmap**:
 - Implement remaining bonus modules

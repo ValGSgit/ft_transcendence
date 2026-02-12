@@ -11,13 +11,17 @@ export default defineConfig({
     }
   },
   server: {
-    host: true, // Listen on 0.0.0.0 (All IP addresses)
+    host: true, // Listen on 0.0.0.0 for Docker
     port: 5173,
     watch: {
-      usePolling: true // Essential for Docker on Windows/Mac to see code changes
+      usePolling: true // Required for Docker volume mounts
     },
+    // HMR works through nginx WebSocket proxy on port 8080
+    hmr: {
+      clientPort: 8080
+    },
+    // Proxy for local dev without Docker (optional fallback)
     proxy: {
-      // Proxy API requests to backend
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,

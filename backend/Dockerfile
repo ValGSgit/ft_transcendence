@@ -11,9 +11,6 @@ RUN npm install
 # Copy application files
 COPY . .
 
-# Create data directory for SQLite
-RUN mkdir -p /app/data
-
 EXPOSE 3000
 
 CMD ["npm", "start"]

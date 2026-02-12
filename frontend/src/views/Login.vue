@@ -59,7 +59,7 @@
             <input type="checkbox" v-model="form.rememberMe" />
             <span>Remember me</span>
           </label>
-          <a href="#" class="forgot-link">Forgot password?</a>
+          <a href="#" class="forgot-link" @click.prevent="handleForgotPassword">Forgot password?</a>
         </div>
 
         <div v-if="error" class="error-message">
@@ -106,6 +106,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import api from '../services/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -158,11 +159,25 @@ function cancel2FA() {
 }
 
 function handleOAuthLogin(provider) {
-  // In production, use relative URL to leverage nginx proxy
-  // In development, use the full URL
-  const isProduction = import.meta.env.PROD
-  const apiUrl = isProduction ? '' : (import.meta.env.VITE_API_URL || 'http://localhost:3000')
-  window.location.href = `${apiUrl}/api/auth/${provider}`
+  // Always use relative URL to leverage nginx proxy (running on port 8080)
+  window.location.href = `/api/auth/${provider}`
+}
+
+async function handleForgotPassword() {
+  const email = form.email || prompt('Enter your email address:')
+  if (!email) return
+  
+  try {
+    loading.value = true
+    error.value = ''
+    await api.post('/auth/forgot-password', { email })
+    error.value = '' // Clear any previous error
+    alert('If an account exists with this email, a password reset link has been sent.')
+  } catch (err) {
+    error.value = err.response?.data?.message || 'Failed to initiate password reset'
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 

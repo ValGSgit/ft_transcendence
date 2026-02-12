@@ -10,7 +10,7 @@
     <template v-else-if="profile">
     <!-- Cover Photo -->
     <div class="cover-section">
-      <div class="cover-photo" :style="{ backgroundImage: `url(${profile?.coverPhoto || defaultCover})` }">
+      <div class="cover-photo" :style="{ backgroundImage: `url(${profile?.coverPhoto || '/default-cover.jpg'})` }">
         <button v-if="isOwnProfile" class="edit-cover-btn" @click="editCoverPhoto">
           📷 Edit Cover Photo
         </button>

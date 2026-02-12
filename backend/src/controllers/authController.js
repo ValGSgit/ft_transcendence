@@ -90,7 +90,7 @@ export const login = async (req, res) => {
       if (!totpCode) {
         return successResponse(res, {
           requires2FA: true,
-          userId: user.id
+          email: user.email // Return email instead of internal userId
         }, '2FA code required');
       }
 
@@ -152,7 +152,7 @@ export const refreshToken = async (req, res) => {
       return errorResponse(res, 'Refresh token is required', 400);
     }
 
-    const decoded = verifyToken(oldRefreshToken);
+    const decoded = verifyToken(oldRefreshToken, 'refresh');
     if (!decoded) {
       return errorResponse(res, 'Invalid refresh token', 401);
     }
@@ -326,15 +326,19 @@ export const forgotPassword = async (req, res) => {
     const resetToken = await User.generatePasswordResetToken(user.id);
 
     // In production, this would be sent via email
-    // For now, return it in the response (for Postman testing)
-    console.log(`Password reset token generated for user ${user.email}: ${resetToken}`);
+    console.log(`Password reset token generated for user ${user.email}`);
 
-    return successResponse(res, {
-      message: 'Password reset token generated',
-      // Include token in response for testing (remove in production or use email)
-      resetToken,
+    // Only expose token in development for testing
+    const responseData = {
+      message: 'If an account exists with this email, a password reset link has been sent',
       expiresIn: '1 hour'
-    }, 'Password reset initiated');
+    };
+
+    if (process.env.NODE_ENV !== 'production') {
+      responseData.resetToken = resetToken; // Dev/test only
+    }
+
+    return successResponse(res, responseData, 'Password reset initiated');
   } catch (error) {
     console.error('Forgot password error:', error);
     return errorResponse(res, 'Failed to initiate password reset', 500);

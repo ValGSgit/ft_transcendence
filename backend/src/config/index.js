@@ -26,19 +26,14 @@ export const config = {
   },
 
   // CORS Configuration
+  // In Docker, nginx is the single entry point — allow its origins.
   cors: {
     origins: process.env.CORS_ORIGINS 
       ? process.env.CORS_ORIGINS.split(',')
       : [
-        'http://localhost:4200', // Angular
-        'http://localhost:5173', // Vue
-        'http://127.0.0.1:4200',
-        'http://127.0.0.1:5173',
-        'http://10.13.200.87:5173', // Actual network IP
-        'http://10.13.200.87:4200',
-        'http://172.18.0.1:5173', // Docker network
-        /^http:\/\/10\.13\.200\.\d{1,3}:5173$/, // Network range
-        /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:5173$/, // Typical home network
+        'http://localhost:8080',  // nginx (Docker)
+        'http://127.0.0.1:8080',
+        'http://localhost:5173',  // Vite dev server (local dev without Docker)
       ],
   },
 
@@ -63,8 +58,8 @@ export const config = {
     paddleSpeed: 0.1,
     fieldWidth: 10,
     fieldHeight: 6,
-    paddleHeight: 1,  // Added for AI service
-    ballRadius: 0.15, // Added for AI service
+    paddleHeight: 1,
+    ballRadius: 0.15,
     ai: {
       easy: {
         reactionTime: 0.3,
@@ -89,17 +84,17 @@ export const config = {
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:3000/api/auth/google/callback',
+      callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:8080/api/auth/google/callback',
     },
     github: {
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
-      callbackURL: process.env.GITHUB_CALLBACK_URL || 'http://localhost:3000/api/auth/github/callback',
+      callbackURL: process.env.GITHUB_CALLBACK_URL || 'http://localhost:8080/api/auth/github/callback',
     },
   },
 
-  // Frontend URL for OAuth redirects
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  // Frontend URL (nginx entry point)
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:8080',
 };
 
 export default config;

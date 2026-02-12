@@ -27,7 +27,7 @@ export class User {
 
   static async findById(id) {
     const stmt = db.prepare(`
-      SELECT id, username, email, avatar, bio, status, online, is_admin, two_factor_enabled, last_seen, created_at, updated_at
+      SELECT id, username, email, avatar, cover_photo as "coverPhoto", bio, status, online, is_admin, two_factor_enabled, last_seen, created_at, updated_at
       FROM users WHERE id = ?
     `);
     return await stmt.get(id);
@@ -63,7 +63,7 @@ export class User {
 
   static async findAll(limit = 100, offset = 0) {
     const stmt = db.prepare(`
-      SELECT id, username, email, avatar, bio, status, online, last_seen, created_at
+      SELECT id, username, email, avatar, cover_photo as "coverPhoto", bio, status, online, last_seen, created_at
       FROM users
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
@@ -128,13 +128,13 @@ export class User {
       SET online = ?, last_seen = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
-    await stmt.run(online ? 1 : 0, id);
+    await stmt.run(online ? true : false, id);
   }
 
   static async enable2FA(id, secret) {
     const stmt = db.prepare(`
       UPDATE users
-      SET two_factor_enabled = 1, two_factor_secret = ?
+      SET two_factor_enabled = TRUE, two_factor_secret = ?
       WHERE id = ?
     `);
     await stmt.run(secret, id);
@@ -144,7 +144,7 @@ export class User {
   static async disable2FA(id) {
     const stmt = db.prepare(`
       UPDATE users
-      SET two_factor_enabled = 0, two_factor_secret = NULL
+      SET two_factor_enabled = FALSE, two_factor_secret = NULL
       WHERE id = ?
     `);
     await stmt.run(id);
@@ -199,7 +199,7 @@ export class User {
 
   static async search(query, limit = 20) {
     const stmt = db.prepare(`
-      SELECT id, username, email, avatar, bio, status, online, last_seen
+      SELECT id, username, email, avatar, cover_photo as "coverPhoto", bio, status, online, last_seen
       FROM users
       WHERE username LIKE ? OR email LIKE ?
       LIMIT ?
@@ -212,8 +212,8 @@ export class User {
     // Invalidate any existing tokens
     const invalidateStmt = db.prepare(`
       UPDATE password_reset_tokens
-      SET used = 1
-      WHERE user_id = ? AND used = 0
+      SET used = TRUE
+      WHERE user_id = ? AND used = FALSE
     `);
     await invalidateStmt.run(userId);
 

@@ -12,6 +12,7 @@ const Friends = () => import('../views/Friends.vue')
 const Messages = () => import('../views/Messages.vue')
 const Game = () => import('../views/Game.vue')
 const Settings = () => import('../views/Settings.vue')
+const AdminDashboard = () => import('../views/AdminDashboard.vue')
 const AdminDiagram = () => import('../views/AdminDiagram.vue')
 const NotFound = () => import('../views/NotFound.vue')
 
@@ -75,6 +76,12 @@ const routes = [
     name: 'Settings',
     component: Settings,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/admin',
+    name: 'AdminDashboard',
+    component: AdminDashboard,
+    meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
     path: '/admin/diagram',

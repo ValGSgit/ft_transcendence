@@ -7,7 +7,7 @@ const transactionStorage = new AsyncLocalStorage();
 
 // PostgreSQL connection pool
 const pool = new Pool({
-  host: process.env.DB_HOST || 'postgres',
+  host: process.env.DB_HOST || 'localhost',  // Default to localhost for local dev
   port: process.env.DB_PORT || 5432,
   database: process.env.DB_NAME || 'transcendence',
   user: process.env.DB_USER || 'transcendence',
@@ -85,6 +85,7 @@ const initDatabase = async () => {
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
         avatar TEXT DEFAULT '/avatars/default.png',
+        cover_photo TEXT DEFAULT '/default-cover.jpg',
         bio TEXT DEFAULT '',
         status TEXT DEFAULT 'Hey there! I am using Transcendence',
         online BOOLEAN DEFAULT FALSE,
@@ -311,6 +312,13 @@ const initDatabase = async () => {
       CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_games_status ON games(status);
       CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+    `);
+
+    // Run migrations for existing databases
+    // Add cover_photo column if it doesn't exist
+    await client.query(`
+      ALTER TABLE users
+      ADD COLUMN IF NOT EXISTS cover_photo TEXT DEFAULT '/default-cover.jpg';
     `);
 
     await client.query('COMMIT');
