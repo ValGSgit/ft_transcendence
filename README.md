@@ -6,6 +6,11 @@
 
 **Transcendence** is a sophisticated web application combining real-time multiplayer Pong gaming with comprehensive social networking features. Built with modern technologies, it features secure authentication (including 2FA and OAuth), real-time chat, AI opponents, and a polished user experience.
 
+## Greap
+
+**Mermaid.js**
+[https://mermaid.ai/d/b3246744-8719-454f-8aa8-2c929cda3871]
+
 ### ✨ Key Features
 
 - **🎯 3D Pong Game**: Three.js WebGL-based game with realistic physics engine
