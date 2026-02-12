@@ -82,6 +82,7 @@ install:
 	@cd $(BACKEND_DIR) && npm install
 	@cd $(FRONTEND_DIR) && npm install
 	@echo "$(GREEN)✓ All dependencies installed$(RESET)"
+	@echo "$(YELLOW)💡 Tip: Use Docker (make up) to avoid local node_modules$(RESET)"
 
 setup: install
 	@echo ""
